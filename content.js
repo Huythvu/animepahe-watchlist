@@ -10,7 +10,8 @@ const SETTINGS_KEY = "apw_settings";
 const ANILIST_AIRING_TTL_MS = 60 * 60 * 1000;
 const LATEST_EP_CACHE_TTL_MS = 30 * 60 * 1000;
 
-const MAX_ITEMS = 30;
+const MAX_WATCHING = 20;
+const MAX_PLAN = 20;
 const VISIBLE_ITEMS = 6;
 const CARD_WIDTH = 180;
 const CARD_GAP = 17;
@@ -145,6 +146,15 @@ async function saveCurrentEpisode() {
     const existingList = await getWatched();
     const existingEntry = existingList.find(item => item.animeUrl === animeHref);
 
+    if (!existingEntry) {
+        const watchingCount = existingList.filter(item => (item.status || "watching") === "watching").length;
+
+        if (watchingCount >= MAX_WATCHING) {
+            console.log("[APW] Currently Watching cap reached, skipping new entry");
+            return false;
+        }
+    }
+
     const entry = {
         title: animeTitle,
         episode,
@@ -152,13 +162,12 @@ async function saveCurrentEpisode() {
         animeUrl: animeHref,
         thumb: existingEntry?.thumb || "",
         ts: Date.now(),
-        status: "watching",
-        statusTs: Date.now()
+        status: existingEntry?.status || "watching",
+        statusTs: existingEntry?.statusTs || Date.now()
     };
 
     let list = existingList.filter(item => item.animeUrl !== entry.animeUrl);
     list.unshift(entry);
-    list = list.slice(0, MAX_ITEMS);
 
     await saveWatched(list);
 
@@ -730,6 +739,24 @@ function injectStyles() {
         .apw-hidden {
             display: none !important;
         }
+
+        .apw-toast {
+            display: none;
+            width: 100%;
+            max-width: ${viewportWidth}px;
+            margin-bottom: 8px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            background: rgba(255, 180, 0, 0.08);
+            border: 1px solid rgba(255, 180, 0, 0.22);
+            color: rgba(255, 200, 80, 0.9);
+            font-size: 0.82em;
+            text-align: center;
+        }
+
+        .apw-toast.apw-toast-visible {
+            display: block;
+        }
     `;
 
     document.head.appendChild(style);
@@ -954,12 +981,39 @@ async function toggleEntryStatus(animeUrl) {
 
     const currentStatus = list[idx].status || "watching";
     const nextStatus = currentStatus === "plan" ? "watching" : "plan";
+    const cap = nextStatus === "watching" ? MAX_WATCHING : MAX_PLAN;
+    const targetCount = list.filter(item => (item.status || "watching") === nextStatus).length;
+
+    if (targetCount >= cap) {
+        const label = nextStatus === "plan" ? "Plan to Watch" : "Currently Watching";
+        showWidgetToast(`${label} is full (${cap}/${cap})`);
+        return;
+    }
 
     list[idx].status = nextStatus;
     list[idx].statusTs = Date.now();
 
     await saveWatched(list);
     refreshWatchlist();
+}
+
+function showWidgetToast(message) {
+    const section = document.querySelector("#animepahe-watchlist");
+    if (!section) return;
+
+    let toast = section.querySelector(".apw-toast");
+
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.className = "apw-toast";
+        section.querySelector(".apw-header").insertAdjacentElement("afterend", toast);
+    }
+
+    toast.textContent = message;
+    toast.classList.add("apw-toast-visible");
+
+    clearTimeout(toast._hideTimeout);
+    toast._hideTimeout = setTimeout(() => toast.classList.remove("apw-toast-visible"), 3000);
 }
 
 // ---------- Latest episode badges ----------
