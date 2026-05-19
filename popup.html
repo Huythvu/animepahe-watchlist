@@ -6,39 +6,95 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Animepahe Watchlist</h1>
+    <main class="popup">
+        <header class="header">
+            <h1>Animepahe Watchlist</h1>
+            <p class="subtitle">Manage and sync your watchlist.</p>
+        </header>
 
-    <div class="stats">
-        <div>
-            <span class="label">Currently Watching</span>
-            <span id="watchingCount">0</span>
-        </div>
+        <section class="stats">
+            <div class="stat-card">
+                <span class="label">Currently Watching</span>
+                <strong id="watchingCount">0</strong>
+            </div>
 
-        <div>
-            <span class="label">Plan to Watch</span>
-            <span id="planCount">0</span>
+            <div class="stat-card">
+                <span class="label">Plan to Watch</span>
+                <strong id="planCount">0</strong>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <label class="toggle">
+                <input type="checkbox" id="showCountdowns">
+                <span>Show airing countdowns</span>
+            </label>
+
+            <label class="toggle">
+                <input type="checkbox" id="showBadges">
+                <span>Show new episode badges</span>
+            </label>
+        </section>
+
+        <section class="sync-section">
+            <h2>Sync</h2>
+
+            <p class="hint">
+                5-word phrase to sync your watchlist across browsers.
+            </p>
+
+            <div class="button-stack">
+                <button id="createSync" class="primary-btn">
+                    Generate sync phrase
+                </button>
+
+                <button id="openSyncForm" class="secondary-btn">
+                    Sync with phrase
+                </button>
+            </div>
+
+            <div id="syncForm" class="sync-form hidden">
+                <label class="field">
+                    <span>Paste sync phrase</span>
+                    <input 
+                        id="syncKey" 
+                        type="text" 
+                        placeholder="mango tiger cloud ramen orbit" 
+                        spellcheck="false"
+                    >
+                </label>
+
+                <button id="syncNow" class="primary-btn">
+                    Sync watchlist
+                </button>
+                <p id="status" class="status"></p>
+            </div>
+        </section>
+    </main>
+
+    <div id="phraseModal" class="modal hidden">
+        <div class="modal-card">
+            <h2>Your sync phrase</h2>
+
+            <p class="hint">
+                Copy this phrase and use it on another browser/device.
+                Anyone with this phrase can access the same watchlist.
+            </p>
+
+            <div id="generatedPhrase" class="phrase-box"></div>
+
+            <div class="modal-actions">
+                <button id="copyPhrase" class="primary-btn">
+                    Copy phrase
+                </button>
+
+                <button id="closePhraseModal" class="secondary-btn">
+                    Done
+                </button>
+            </div>
         </div>
     </div>
 
-    <hr>
-
-    <label class="toggle">
-        <input type="checkbox" id="showCountdowns">
-        Show airing countdowns
-    </label>
-
-    <label class="toggle">
-        <input type="checkbox" id="showBadges">
-        Show new episode badges
-    </label>
-
-    <hr>
-
-    <button id="resetSettings">Reset settings</button>
-    <button id="clearData" class="danger">Clear saved list</button>
-
-    <p id="status"></p>
-
-    <script src="popup.js"></script>
+    <script type="module" src="dist/popup.js"></script>
 </body>
 </html>

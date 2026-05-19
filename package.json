@@ -1,0 +1,32 @@
+{
+  "name": "animepahe-watchlist",
+  "version": "1.0.0",
+  "description": "Chrome extension for Animepahe that adds a watchlist, recently watched tracking, and plan-to-watch features.",
+  "type": "module",
+  "main": "content.js",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Huythvu/animepahe-watchlist.git"
+  },
+  "keywords": [
+    "animepahe",
+    "chrome-extension",
+    "watchlist"
+  ],
+  "author": "Huy Vu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Huythvu/animepahe-watchlist/issues"
+  },
+  "homepage": "https://github.com/Huythvu/animepahe-watchlist#readme",
+  "dependencies": {
+    "firebase": "^12.13.0"
+  },
+  "devDependencies": {
+    "vite": "^8.0.13"
+  }
+}

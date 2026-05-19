@@ -3,11 +3,22 @@
   "name": "Animepahe Watchlist",
   "version": "1.0.0",
   "description": "Adds a Currently Watching and Plan to Watch list to Animepahe.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://animepahe.pw/*",
-    "https://graphql.anilist.co/*"
+    "https://graphql.anilist.co/*",
+    "https://firestore.googleapis.com/*"
   ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
   "content_scripts": [
     {
       "matches": ["https://animepahe.pw/*"],
@@ -16,6 +27,12 @@
     }
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   }
 }
