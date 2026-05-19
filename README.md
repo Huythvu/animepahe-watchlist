@@ -7,7 +7,7 @@ Chrome extension for Animepahe that adds:
 - Recently watched episode tracking
 - New episode badges
 - Airing countdowns
-- Future sync key support
+- Sync list across multiple devices
 
 ## Status
 
