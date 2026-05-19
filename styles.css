@@ -44,6 +44,18 @@ h2 {
     margin-bottom: 14px;
 }
 
+.cap-warning {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 180, 0, 0.08);
+    border: 1px solid rgba(255, 180, 0, 0.2);
+    font-size: 11px;
+    color: rgba(255, 200, 80, 0.85);
+    text-align: center;
+}
+
 .stat-card {
     padding: 10px;
     border-radius: 10px;

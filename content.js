@@ -10,7 +10,7 @@ const SETTINGS_KEY = "apw_settings";
 const ANILIST_AIRING_TTL_MS = 60 * 60 * 1000;
 const LATEST_EP_CACHE_TTL_MS = 30 * 60 * 1000;
 
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 30;
 const VISIBLE_ITEMS = 6;
 const CARD_WIDTH = 180;
 const CARD_GAP = 17;

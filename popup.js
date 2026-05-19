@@ -20,8 +20,11 @@ const DEFAULT_SETTINGS = {
     currentFilter: "watching"
 };
 
+const MAX_ITEMS = 30;
+
 const watchingCountEl = document.querySelector("#watchingCount");
 const planCountEl = document.querySelector("#planCount");
+const capWarningEl = document.querySelector("#capWarning");
 const showCountdownsEl = document.querySelector("#showCountdowns");
 const showBadgesEl = document.querySelector("#showBadges");
 const statusEl = document.querySelector("#status");
@@ -114,6 +117,7 @@ async function updatePopup() {
 
     watchingCountEl.textContent = watchingCount;
     planCountEl.textContent = planCount;
+    capWarningEl.classList.toggle("hidden", list.length < MAX_ITEMS);
 
     showCountdownsEl.checked = settings.showCountdowns;
     showBadgesEl.checked = settings.showNewEpisodeBadges;
