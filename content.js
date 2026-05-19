@@ -1556,4 +1556,9 @@ if (isPlayPage) {
 if (isHomePage) {
     injectStyles();
     renderWatchlist();
+
+    chrome.runtime.sendMessage({ type: "autoSync" }, response => {
+        if (chrome.runtime.lastError) return; // extension reloaded / no background
+        if (response?.success) refreshWatchlist();
+    });
 }
