@@ -426,6 +426,11 @@ function injectStyles() {
             white-space: nowrap;
         }
 
+        .apw-meta-capped {
+            opacity: 1;
+            color: rgba(255, 200, 80, 0.85);
+        }
+
         .apw-body {
             width: 100%;
             display: flex;
@@ -832,13 +837,28 @@ function updateArrows() {
     rightBtn.disabled = list.scrollLeft >= list.scrollWidth - list.clientWidth - 1;
 }
 
-function updateMeta() {
+async function updateMeta() {
     const meta = document.querySelector("#animepahe-watchlist .apw-meta");
     if (!meta) return;
 
     const visibleCards = document.querySelectorAll("#animepahe-watchlist .apw-wrap:not(.apw-hidden)").length;
 
-    meta.textContent = visibleCards ? `${visibleCards} shown` : "";
+    if (!visibleCards) {
+        meta.textContent = "";
+        meta.classList.remove("apw-meta-capped");
+        return;
+    }
+
+    const settings = await getSettings();
+    const cap = settings.currentFilter === "plan" ? MAX_PLAN : MAX_WATCHING;
+
+    if (visibleCards >= cap) {
+        meta.textContent = `${visibleCards}/${cap} · Capped`;
+        meta.classList.add("apw-meta-capped");
+    } else {
+        meta.textContent = `${visibleCards} shown`;
+        meta.classList.remove("apw-meta-capped");
+    }
 }
 
 function enableDragScroll(slider) {
