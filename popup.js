@@ -3,7 +3,9 @@ console.log("Popup JS loaded");
 import {
     generateSyncKey,
     getLocalSyncKey,
+    clearLocalSyncKey,
     saveLocalSyncKey,
+    validateSyncKey,
     uploadWatchlist,
     syncWatchlist
 } from "./sync.js";
@@ -24,27 +26,24 @@ const showCountdownsEl = document.querySelector("#showCountdowns");
 const showBadgesEl = document.querySelector("#showBadges");
 const statusEl = document.querySelector("#status");
 
-// New sync UI
 const createSyncBtn = document.querySelector("#createSync");
 const openSyncFormBtn = document.querySelector("#openSyncForm");
 const syncForm = document.querySelector("#syncForm");
 const syncKeyInput = document.querySelector("#syncKey");
 const syncNowBtn = document.querySelector("#syncNow");
+const syncError = document.querySelector("#syncError");
 
-// Phrase modal
-const phraseModal = document.querySelector("#phraseModal");
-const generatedPhraseEl = document.querySelector("#generatedPhrase");
+const syncIdle = document.querySelector("#syncIdle");
+const syncActive = document.querySelector("#syncActive");
+const phraseWordsEl = document.querySelector("#phraseWords");
 const copyPhraseBtn = document.querySelector("#copyPhrase");
-const closePhraseModalBtn = document.querySelector("#closePhraseModal");
+const disconnectBtn = document.querySelector("#disconnectSync");
 
-let latestGeneratedPhrase = "";
 let statusTimeout;
 
 function setStatus(message) {
     statusEl.textContent = message;
-
     clearTimeout(statusTimeout);
-
     statusTimeout = setTimeout(() => {
         statusEl.textContent = "";
     }, 5000);
@@ -55,6 +54,41 @@ function setButtonLoading(button, isLoading, loadingText, normalText) {
     button.textContent = isLoading ? loadingText : normalText;
 }
 
+function showSyncError(message) {
+    syncError.textContent = message;
+    syncError.classList.remove("hidden");
+}
+
+function clearSyncError() {
+    syncError.textContent = "";
+    syncError.classList.add("hidden");
+}
+
+function showActiveState(phrase) {
+    const words = phrase.trim().split(/\s+/);
+
+    phraseWordsEl.innerHTML = "";
+
+    words.forEach((word, i) => {
+        const span = document.createElement("span");
+        span.className = "phrase-word";
+        span.textContent = word;
+        span.style.animationDelay = `${i * 0.06}s`;
+        phraseWordsEl.appendChild(span);
+    });
+
+    syncIdle.classList.add("hidden");
+    syncActive.classList.remove("hidden");
+}
+
+function showIdleState() {
+    syncActive.classList.add("hidden");
+    syncIdle.classList.remove("hidden");
+    syncForm.classList.add("hidden");
+    clearSyncError();
+    syncKeyInput.value = "";
+}
+
 async function getWatched() {
     const data = await chrome.storage.local.get([STORAGE_KEY]);
     return data[STORAGE_KEY] || [];
@@ -62,22 +96,12 @@ async function getWatched() {
 
 async function getSettings() {
     const data = await chrome.storage.local.get([SETTINGS_KEY]);
-
-    return {
-        ...DEFAULT_SETTINGS,
-        ...(data[SETTINGS_KEY] || {})
-    };
+    return { ...DEFAULT_SETTINGS, ...(data[SETTINGS_KEY] || {}) };
 }
 
 async function saveSettings(settings) {
     const current = await getSettings();
-
-    await chrome.storage.local.set({
-        [SETTINGS_KEY]: {
-            ...current,
-            ...settings
-        }
-    });
+    await chrome.storage.local.set({ [SETTINGS_KEY]: { ...current, ...settings } });
 }
 
 async function updatePopup() {
@@ -94,120 +118,105 @@ async function updatePopup() {
     showCountdownsEl.checked = settings.showCountdowns;
     showBadgesEl.checked = settings.showNewEpisodeBadges;
 
-    if (syncKeyInput) {
-        syncKeyInput.value = syncKey;
+    if (syncKey) {
+        showActiveState(syncKey);
+    } else {
+        showIdleState();
     }
 }
 
 showCountdownsEl.addEventListener("change", async () => {
-    await saveSettings({
-        showCountdowns: showCountdownsEl.checked
-    });
-
+    await saveSettings({ showCountdowns: showCountdownsEl.checked });
     setStatus("Countdown setting saved");
 });
 
 showBadgesEl.addEventListener("change", async () => {
-    await saveSettings({
-        showNewEpisodeBadges: showBadgesEl.checked
-    });
-
+    await saveSettings({ showNewEpisodeBadges: showBadgesEl.checked });
     setStatus("Badge setting saved");
 });
 
-// Generate phrase + auto upload
 createSyncBtn.addEventListener("click", async () => {
-    setButtonLoading(createSyncBtn, true, "Creating...", "Generate sync phrase");
-    setStatus("Creating sync phrase and uploading watchlist...");
+    setButtonLoading(createSyncBtn, true, "Generating...", "Generate sync phrase");
 
     try {
         const key = generateSyncKey();
-
         await saveLocalSyncKey(key);
-
-        const count = await uploadWatchlist(key);
-
-        latestGeneratedPhrase = key;
-        generatedPhraseEl.textContent = key;
-        phraseModal.classList.remove("hidden");
-
-        if (count === 0) {
-            setStatus("Sync phrase created. Your watchlist is currently empty.");
-        } else {
-            setStatus(`Sync phrase created. Uploaded ${count} item${count === 1 ? "" : "s"}.`);
-        }
+        await uploadWatchlist(key);
+        showActiveState(key);
+        setStatus("Sync phrase generated.");
     } catch (err) {
-        console.error("Create sync phrase failed:", err);
-        setStatus(err.message || "Could not create sync phrase");
+        console.error("Generate failed:", err);
+        setStatus(err.message || "Could not generate sync phrase");
     } finally {
-        setButtonLoading(createSyncBtn, false, "Creating...", "Generate sync phrase");
+        setButtonLoading(createSyncBtn, false, "Generating...", "Generate sync phrase");
     }
 });
 
-// Copy generated phrase
-copyPhraseBtn.addEventListener("click", async () => {
-    try {
-        await navigator.clipboard.writeText(latestGeneratedPhrase);
-
-        copyPhraseBtn.textContent = "Copied!";
-        setStatus("Sync phrase copied");
-
-        setTimeout(() => {
-            copyPhraseBtn.textContent = "Copy phrase";
-        }, 1500);
-    } catch (err) {
-        console.error("Copy phrase failed:", err);
-        setStatus("Could not copy phrase");
-    }
-});
-
-// Close modal
-closePhraseModalBtn.addEventListener("click", () => {
-    phraseModal.classList.add("hidden");
-    copyPhraseBtn.textContent = "Copy phrase";
-});
-
-// Show/hide sync form
 openSyncFormBtn.addEventListener("click", () => {
     syncForm.classList.toggle("hidden");
+    clearSyncError();
 
     if (!syncForm.classList.contains("hidden")) {
         syncKeyInput.focus();
     }
 });
 
-// Sync with pasted phrase
+syncKeyInput.addEventListener("input", clearSyncError);
+
 syncNowBtn.addEventListener("click", async () => {
-    setButtonLoading(syncNowBtn, true, "Syncing...", "Sync watchlist");
-    setStatus("Syncing watchlist...");
+    const key = syncKeyInput.value.trim();
+
+    const error = validateSyncKey(key);
+
+    if (error) {
+        showSyncError(error);
+        return;
+    }
+
+    setButtonLoading(syncNowBtn, true, "Syncing...", "Connect");
+    clearSyncError();
 
     try {
-        const key = syncKeyInput.value.trim();
-
         await saveLocalSyncKey(key);
-
         const count = await syncWatchlist(key);
-await updatePopup();
+        await updatePopup();
 
-if (count === 0) {
-    setStatus("Synced. The watchlist is empty.");
-} else {
-    setStatus(`Synced ${count} item${count === 1 ? "" : "s"}. Refreshing page...`);
-}
+        if (count === 0) {
+            setStatus("Synced. The watchlist is empty.");
+        } else {
+            setStatus(`Synced ${count} item${count === 1 ? "" : "s"}.`);
+        }
 
-const [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true
-});
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-if (tab?.id && tab.url?.includes("animepahe.pw")) {
-    await chrome.tabs.reload(tab.id);
-}
+        if (tab?.id && tab.url?.includes("animepahe.pw")) {
+            await chrome.tabs.reload(tab.id);
+        }
     } catch (err) {
         console.error("Sync failed:", err);
         setStatus(err.message || "Sync failed");
     } finally {
-        setButtonLoading(syncNowBtn, false, "Syncing...", "Sync watchlist");
+        setButtonLoading(syncNowBtn, false, "Syncing...", "Connect");
+    }
+});
+
+disconnectBtn.addEventListener("click", async () => {
+    await clearLocalSyncKey();
+    showIdleState();
+    setStatus("Disconnected.");
+});
+
+copyPhraseBtn.addEventListener("click", async () => {
+    const phrase = Array.from(phraseWordsEl.querySelectorAll(".phrase-word"))
+        .map(el => el.textContent)
+        .join(" ");
+
+    try {
+        await navigator.clipboard.writeText(phrase);
+        copyPhraseBtn.textContent = "Copied!";
+        setTimeout(() => { copyPhraseBtn.textContent = "Copy phrase"; }, 1500);
+    } catch (err) {
+        setStatus("Could not copy phrase");
     }
 });
 

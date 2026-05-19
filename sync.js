@@ -45,6 +45,27 @@ export async function getLocalSyncKey() {
     return data[SYNC_KEY] || "";
 }
 
+export async function clearLocalSyncKey() {
+    await chrome.storage.local.remove(SYNC_KEY);
+}
+
+export function validateSyncKey(syncKey) {
+    const normalized = normalizeSyncKey(syncKey);
+    const words = normalized.split(" ");
+
+    if (!normalized || words.length !== 5) {
+        return "Phrase must be exactly 5 words";
+    }
+
+    const invalid = words.filter(w => !SYNC_WORDS.includes(w));
+
+    if (invalid.length > 0) {
+        return `Unknown word${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`;
+    }
+
+    return null;
+}
+
 export async function saveLocalSyncKey(syncKey) {
     const normalized = normalizeSyncKey(syncKey);
 

@@ -43,57 +43,40 @@
                 5-word phrase to sync your watchlist across browsers.
             </p>
 
-            <div class="button-stack">
-                <button id="createSync" class="primary-btn">
-                    Generate sync phrase
-                </button>
+            <div id="syncIdle">
+                <div class="button-stack">
+                    <button id="createSync" class="primary-btn">
+                        Generate sync phrase
+                    </button>
 
-                <button id="openSyncForm" class="secondary-btn">
-                    Sync with phrase
-                </button>
-            </div>
+                    <button id="openSyncForm" class="secondary-btn">
+                        Sync with phrase
+                    </button>
+                </div>
 
-            <div id="syncForm" class="sync-form hidden">
-                <label class="field">
-                    <span>Paste sync phrase</span>
-                    <input 
-                        id="syncKey" 
-                        type="text" 
-                        placeholder="mango tiger cloud ramen orbit" 
+                <div id="syncForm" class="sync-form hidden">
+                    <input
+                        id="syncKey"
+                        type="text"
+                        placeholder="mango tiger cloud ramen orbit"
                         spellcheck="false"
                     >
-                </label>
-
-                <button id="syncNow" class="primary-btn">
-                    Sync watchlist
-                </button>
-                <p id="status" class="status"></p>
+                    <p id="syncError" class="error-text hidden"></p>
+                    <button id="syncNow" class="primary-btn">Connect</button>
+                </div>
             </div>
+
+            <div id="syncActive" class="hidden">
+                <p class="phrase-label">Active sync phrase</p>
+                <div id="phraseWords" class="phrase-words"></div>
+                <button id="copyPhrase" class="copy-phrase-btn">Copy phrase</button>
+                <p class="synced-status"><span class="status-dot"></span>Synced</p>
+                <button id="disconnectSync" class="disconnect-btn">Disconnect sync</button>
+            </div>
+
+            <p id="status" class="status"></p>
         </section>
     </main>
-
-    <div id="phraseModal" class="modal hidden">
-        <div class="modal-card">
-            <h2>Your sync phrase</h2>
-
-            <p class="hint">
-                Copy this phrase and use it on another browser/device.
-                Anyone with this phrase can access the same watchlist.
-            </p>
-
-            <div id="generatedPhrase" class="phrase-box"></div>
-
-            <div class="modal-actions">
-                <button id="copyPhrase" class="primary-btn">
-                    Copy phrase
-                </button>
-
-                <button id="closePhraseModal" class="secondary-btn">
-                    Done
-                </button>
-            </div>
-        </div>
-    </div>
 
     <script type="module" src="dist/popup.js"></script>
 </body>

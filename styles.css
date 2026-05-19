@@ -125,17 +125,97 @@ button:disabled {
 }
 
 .sync-form {
-    margin-top: 12px;
-    padding: 12px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.06);
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.field {
-    display: grid;
-    gap: 6px;
-    margin-bottom: 10px;
+.error-text {
+    margin: 0;
     font-size: 12px;
+    color: #ff8a8a;
+}
+
+.phrase-label {
+    margin: 12px 0 8px;
+    font-size: 11px;
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.phrase-words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.phrase-word {
+    background: rgba(79, 140, 255, 0.12);
+    border: 1px solid rgba(79, 140, 255, 0.3);
+    color: #9cccff;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    animation: wordPop 0.25s ease both;
+}
+
+@keyframes wordPop {
+    from { transform: scale(0.75); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+.copy-phrase-btn {
+    width: auto;
+    padding: 2px 0;
+    background: transparent;
+    color: #9cccff;
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.75;
+    text-align: left;
+}
+
+.copy-phrase-btn:hover {
+    opacity: 1;
+}
+
+.synced-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+    font-size: 12px;
+    opacity: 0.6;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4caf50;
+    box-shadow: 0 0 5px #4caf50;
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+
+.disconnect-btn {
+    background: rgba(200, 50, 50, 0.15);
+    color: #ff8a8a;
+    border: 1px solid rgba(200, 50, 50, 0.25);
+}
+
+.disconnect-btn:hover {
+    background: rgba(200, 50, 50, 0.25);
+    opacity: 1;
 }
 
 input[type="text"] {
