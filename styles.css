@@ -1,5 +1,5 @@
 body {
-    width: 240px;
+    width: 260px;
     padding: 12px;
     font-family: system-ui, sans-serif;
     background: #111;
@@ -8,12 +8,39 @@ body {
 
 h1 {
     font-size: 16px;
-    margin: 0 0 8px;
+    margin: 0 0 12px;
 }
 
-p {
-    font-size: 13px;
+hr {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    margin: 12px 0;
+}
+
+.stats {
+    display: grid;
+    gap: 8px;
+}
+
+.stats div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+}
+
+.label {
     opacity: 0.75;
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0;
+    font-size: 13px;
 }
 
 button {
@@ -23,4 +50,22 @@ button {
     border: none;
     border-radius: 6px;
     cursor: pointer;
+    font-weight: 600;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.danger {
+    background: #d9534f;
+    color: white;
+}
+
+#status {
+    min-height: 18px;
+    margin: 10px 0 0;
+    font-size: 12px;
+    opacity: 0.75;
+    text-align: center;
 }

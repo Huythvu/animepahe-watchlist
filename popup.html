@@ -8,10 +8,36 @@
 <body>
     <h1>Animepahe Watchlist</h1>
 
-    <p>Extension is running.</p>
+    <div class="stats">
+        <div>
+            <span class="label">Currently Watching</span>
+            <span id="watchingCount">0</span>
+        </div>
 
-    <button id="clearData">Clear saved list</button>
+        <div>
+            <span class="label">Plan to Watch</span>
+            <span id="planCount">0</span>
+        </div>
+    </div>
+
+    <hr>
+
+    <label class="toggle">
+        <input type="checkbox" id="showCountdowns">
+        Show airing countdowns
+    </label>
+
+    <label class="toggle">
+        <input type="checkbox" id="showBadges">
+        Show new episode badges
+    </label>
+
+    <hr>
+
     <button id="resetSettings">Reset settings</button>
+    <button id="clearData" class="danger">Clear saved list</button>
+
+    <p id="status"></p>
 
     <script src="popup.js"></script>
 </body>
