@@ -1,5 +1,3 @@
-console.log("Animepahe Watchlist extension loaded");
-
 const STORAGE_KEY = "recently_watched";
 const POSTER_CACHE_KEY = "apw_poster_cache";
 const LATEST_EP_CACHE_KEY = "apw_latest_ep_cache";
@@ -132,10 +130,7 @@ async function saveCurrentEpisode() {
     const titleTag = document.title || "";
     const match = titleTag.match(/^(.+?) Ep\.\s*(\S+)\s*::/);
 
-    if (!match) {
-        console.log("[APW] Could not read title/episode:", titleTag);
-        return false;
-    }
+    if (!match) return false;
 
     const animeTitle = match[1].trim();
     const episode = match[2].trim();
@@ -143,10 +138,7 @@ async function saveCurrentEpisode() {
     const animeLink = document.querySelector('a[href^="/anime/"]');
     const animeHref = animeLink ? animeLink.getAttribute("href") : null;
 
-    if (!animeHref) {
-        console.log("[APW] Could not find anime link");
-        return false;
-    }
+    if (!animeHref) return false;
 
     const existingList = await getWatched();
     const existingEntry = existingList.find(item => item.animeUrl === animeHref);
@@ -154,10 +146,7 @@ async function saveCurrentEpisode() {
     if (!existingEntry) {
         const watchingCount = existingList.filter(item => (item.status || "watching") === "watching").length;
 
-        if (watchingCount >= MAX_WATCHING) {
-            console.log("[APW] Currently Watching cap reached, skipping new entry");
-            return false;
-        }
+        if (watchingCount >= MAX_WATCHING) return false;
     }
 
     const entry = {
@@ -175,8 +164,6 @@ async function saveCurrentEpisode() {
     list.unshift(entry);
 
     await saveWatched(list);
-
-    console.log("[APW] Saved watched episode:", entry);
 
     fetchPoster(location.origin + animeHref).then(async poster => {
         if (!poster) return;
@@ -1331,8 +1318,6 @@ async function renderWatchlist() {
 
     let list = await getWatched();
 
-    console.log("[APW] Rendering with", list.length, "items");
-
     const cache = await getPosterCache();
     let mutated = false;
 
@@ -1389,10 +1374,7 @@ async function renderWatchlist() {
 
         if (el) return cb(el);
 
-        if (tries <= 0) {
-            console.warn("[APW] .latest-release never appeared");
-            return;
-        }
+        if (tries <= 0) return;
 
         setTimeout(() => waitFor(selector, cb, tries - 1), 250);
     };

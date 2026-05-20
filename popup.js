@@ -1,5 +1,3 @@
-console.log("Popup JS loaded");
-
 import {
     generateSyncKey,
     getLocalSyncKey,
@@ -188,7 +186,6 @@ async function updateGenerateCooldown() {
     if (remaining <= 0) {
         createSyncBtn.disabled = false;
         createSyncBtn.textContent = "Generate sync phrase";
-        clearInterval(cooldownInterval);
         return;
     }
 

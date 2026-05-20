@@ -4,8 +4,6 @@ const STORAGE_KEY = "recently_watched";
 
 let uploadTimeout = null;
 
-console.log("Background service worker loaded");
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type !== "autoSync") return false;
 
