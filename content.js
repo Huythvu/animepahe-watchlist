@@ -1043,6 +1043,9 @@ async function toggleEntryStatus(animeUrl) {
     list[idx].status = nextStatus;
     list[idx].statusTs = Date.now();
 
+    const [entry] = list.splice(idx, 1);
+    list.unshift(entry);
+
     await saveWatched(list);
     refreshWatchlist();
 }
