@@ -3,6 +3,7 @@ import { db } from "./firebase-config.js";
 
 const STORAGE_KEY = "recently_watched";
 const SYNC_KEY = "apw_sync_key";
+const LAST_SYNCED_KEY = "apw_last_synced";
 
 const SYNC_WORDS = [
     "mango", "tiger", "cloud", "ramen", "orbit",
@@ -49,6 +50,15 @@ export async function clearLocalSyncKey() {
     await chrome.storage.local.remove(SYNC_KEY);
 }
 
+export async function getLastSyncedAt() {
+    const data = await chrome.storage.local.get([LAST_SYNCED_KEY]);
+    return data[LAST_SYNCED_KEY] || null;
+}
+
+async function saveLastSyncedAt() {
+    await chrome.storage.local.set({ [LAST_SYNCED_KEY]: Date.now() });
+}
+
 export function validateSyncKey(syncKey) {
     const normalized = normalizeSyncKey(syncKey);
     const words = normalized.split(" ");
@@ -90,6 +100,7 @@ export async function uploadWatchlist(syncKey) {
         items: safeItems
     });
 
+    await saveLastSyncedAt();
     return safeItems.length;
 }
 
@@ -139,6 +150,7 @@ export async function syncWatchlist(syncKey) {
         items: sanitizeItems(mergedItems)
     });
 
+    await saveLastSyncedAt();
     return mergedItems.length;
 }
 

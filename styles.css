@@ -392,6 +392,12 @@ button:disabled {
     50%       { opacity: 0.5; }
 }
 
+.sync-expiry {
+    margin: 0 0 8px;
+    font-size: 11px;
+    color: rgba(255, 200, 80, 0.85);
+}
+
 .disconnect-btn {
     background: rgba(200, 50, 50, 0.15);
     color: #ff8a8a;

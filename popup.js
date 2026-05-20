@@ -3,12 +3,16 @@ console.log("Popup JS loaded");
 import {
     generateSyncKey,
     getLocalSyncKey,
+    getLastSyncedAt,
     clearLocalSyncKey,
     saveLocalSyncKey,
     validateSyncKey,
     uploadWatchlist,
     syncWatchlist
 } from "./sync.js";
+
+const WARN_AFTER_MS = 75 * 24 * 60 * 60 * 1000;
+const TTL_MS        = 90 * 24 * 60 * 60 * 1000;
 
 const STORAGE_KEY = "recently_watched";
 const SETTINGS_KEY = "apw_settings";
@@ -56,6 +60,7 @@ const syncForm = document.querySelector("#syncForm");
 const syncKeyInput = document.querySelector("#syncKey");
 const syncNowBtn = document.querySelector("#syncNow");
 const syncError = document.querySelector("#syncError");
+const syncExpiryEl = document.querySelector("#syncExpiry");
 const syncHint = document.querySelector("#syncHint");
 const syncIdle = document.querySelector("#syncIdle");
 const syncActive = document.querySelector("#syncActive");
@@ -166,8 +171,28 @@ async function updatePopup() {
 
     if (syncKey) {
         showActiveState(syncKey);
+        await updateExpiryWarning();
     } else {
         showIdleState();
+    }
+}
+
+async function updateExpiryWarning() {
+    const lastSynced = await getLastSyncedAt();
+
+    if (!lastSynced) {
+        syncExpiryEl.classList.add("hidden");
+        return;
+    }
+
+    const age = Date.now() - lastSynced;
+
+    if (age >= WARN_AFTER_MS) {
+        const daysLeft = Math.max(0, Math.ceil((TTL_MS - age) / (24 * 60 * 60 * 1000)));
+        syncExpiryEl.textContent = `Cloud list expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"} · visit AnimePahe to refresh`;
+        syncExpiryEl.classList.remove("hidden");
+    } else {
+        syncExpiryEl.classList.add("hidden");
     }
 }
 

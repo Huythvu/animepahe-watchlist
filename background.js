@@ -1,10 +1,42 @@
-import { getLocalSyncKey, uploadWatchlist, syncWatchlist } from "./sync.js";
+import { getLocalSyncKey, getLastSyncedAt, uploadWatchlist, syncWatchlist } from "./sync.js";
 
 const STORAGE_KEY = "recently_watched";
+const WARN_AFTER_MS = 75 * 24 * 60 * 60 * 1000;
+const TTL_MS        = 90 * 24 * 60 * 60 * 1000;
 
 let uploadTimeout = null;
 
 console.log("Background service worker loaded");
+
+async function checkExpiryBadge() {
+    const syncKey = await getLocalSyncKey();
+
+    if (!syncKey) {
+        chrome.action.setBadgeText({ text: "" });
+        return;
+    }
+
+    const lastSynced = await getLastSyncedAt();
+
+    if (!lastSynced) {
+        chrome.action.setBadgeText({ text: "" });
+        return;
+    }
+
+    const age = Date.now() - lastSynced;
+
+    if (age >= WARN_AFTER_MS) {
+        const daysLeft = Math.max(0, Math.ceil((TTL_MS - age) / (24 * 60 * 60 * 1000)));
+        chrome.action.setBadgeText({ text: "!" });
+        chrome.action.setBadgeBackgroundColor({ color: "#e6a817" });
+        console.log(`[APW] Sync expiry warning: ${daysLeft} days left`);
+    } else {
+        chrome.action.setBadgeText({ text: "" });
+    }
+}
+
+chrome.runtime.onStartup.addListener(checkExpiryBadge);
+chrome.runtime.onInstalled.addListener(checkExpiryBadge);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type !== "autoSync") return false;
@@ -16,24 +48,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         syncWatchlist(syncKey)
-            .then(count => sendResponse({ success: true, count }))
+            .then(count => {
+                checkExpiryBadge();
+                sendResponse({ success: true, count });
+            })
             .catch(err => sendResponse({ success: false, reason: err.message }));
     });
 
-    return true; // keep message channel open for async response
+    return true;
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    console.log("Storage changed:", changes, areaName);
-
     if (areaName !== "local") return;
-
-    if (!changes[STORAGE_KEY]) {
-        console.log("Change was not recently_watched");
-        return;
-    }
-
-    console.log("recently_watched changed, preparing auto-sync");
+    if (!changes[STORAGE_KEY]) return;
 
     clearTimeout(uploadTimeout);
 
@@ -41,15 +68,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         try {
             const syncKey = await getLocalSyncKey();
 
-            console.log("Saved sync phrase:", syncKey);
+            if (!syncKey) return;
 
-            if (!syncKey) {
-                console.log("Auto-sync skipped: no sync phrase saved");
-                return;
-            }
-
-            const count = await uploadWatchlist(syncKey);
-            console.log(`Auto-synced ${count} items`);
+            await uploadWatchlist(syncKey);
+            checkExpiryBadge();
         } catch (err) {
             console.error("Auto-sync failed:", err);
         }
