@@ -183,13 +183,16 @@ h2 {
 .collapsible {
     overflow: hidden;
     max-height: 400px;
-    transition: max-height 0.22s ease;
     margin-top: 10px;
+    /* opening: waits 0.12s for the other panel to finish closing first */
+    transition: max-height 0.22s ease 0.12s, margin-top 0.22s ease 0.12s;
 }
 
 .collapsible.collapsed {
     max-height: 0;
     margin-top: 0;
+    /* closing: fast, no delay */
+    transition: max-height 0.15s ease, margin-top 0.15s ease;
 }
 
 .alignment-row {
@@ -293,12 +296,15 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    transition: max-height 0.22s ease, margin-top 0.22s ease;
+    /* opening: waits 0.12s for the other panel to finish closing first */
+    transition: max-height 0.22s ease 0.12s, margin-top 0.22s ease 0.12s;
 }
 
 .sync-form.collapsed {
     max-height: 0;
     margin-top: 0;
+    /* closing: fast, no delay */
+    transition: max-height 0.15s ease, margin-top 0.15s ease;
 }
 
 .error-text {
