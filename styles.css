@@ -281,10 +281,18 @@ button:disabled {
 /* ---------- Sync ---------- */
 
 .sync-form {
+    overflow: hidden;
+    max-height: 200px;
     margin-top: 10px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    transition: max-height 0.22s ease, margin-top 0.22s ease;
+}
+
+.sync-form.collapsed {
+    max-height: 0;
+    margin-top: 0;
 }
 
 .error-text {

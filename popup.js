@@ -110,7 +110,7 @@ function showIdleState() {
     syncActive.classList.add("hidden");
     syncHint.classList.remove("hidden");
     syncIdle.classList.remove("hidden");
-    syncForm.classList.add("hidden");
+    syncForm.classList.add("collapsed");
     clearSyncError();
     syncKeyInput.value = "";
 }
@@ -180,12 +180,6 @@ widgetToggle.addEventListener("click", async () => {
     updateWidgetPill(newValue);
 });
 
-function instantCollapse(panel) {
-    panel.style.transition = "none";
-    panel.classList.add("collapsed");
-    requestAnimationFrame(() => { panel.style.transition = ""; });
-}
-
 // ---------- Customize toggle ----------
 
 customizeToggle.addEventListener("click", () => {
@@ -194,7 +188,7 @@ customizeToggle.addEventListener("click", () => {
     customizeToggle.classList.toggle("open", !isOpen);
 
     if (!isOpen) {
-        syncForm.classList.add("hidden");
+        syncForm.classList.add("collapsed");
         clearSyncError();
     }
 });
@@ -250,12 +244,12 @@ createSyncBtn.addEventListener("click", async () => {
 });
 
 openSyncFormBtn.addEventListener("click", () => {
-    syncForm.classList.toggle("hidden");
+    syncForm.classList.toggle("collapsed");
     clearSyncError();
 
-    if (!syncForm.classList.contains("hidden")) {
+    if (!syncForm.classList.contains("collapsed")) {
         syncKeyInput.focus();
-        instantCollapse(customizePanel);
+        customizePanel.classList.add("collapsed");
         customizeToggle.classList.remove("open");
     }
 });
