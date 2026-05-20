@@ -355,7 +355,7 @@ button:disabled {
     background: #4caf50;
     box-shadow: 0 0 5px #4caf50;
     flex-shrink: 0;
-    animation: pulse 2s infinite;
+    animation: pulse 4s infinite;
 }
 
 @keyframes pulse {
