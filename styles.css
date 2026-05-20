@@ -326,7 +326,7 @@ button:disabled {
 
 .copy-phrase-btn {
     width: auto;
-    padding: 2px 0;
+    padding: 0;
     background: transparent;
     color: #9cccff;
     font-size: 12px;
@@ -339,28 +339,37 @@ button:disabled {
     opacity: 1;
 }
 
-.synced-status {
+.sync-action-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 6px 0;
-    font-size: 12px;
-    opacity: 0.6;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.synced-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    font-size: 11px;
+    color: #6fcf7c;
 }
 
 .status-dot {
-    width: 7px;
-    height: 7px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: #4caf50;
-    box-shadow: 0 0 5px #4caf50;
     flex-shrink: 0;
-    animation: pulse 4s infinite;
+    animation: pulse 3s ease-in-out infinite;
 }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
-    50%       { opacity: 0.35; }
+    50%       { opacity: 0.5; }
 }
 
 .disconnect-btn {
