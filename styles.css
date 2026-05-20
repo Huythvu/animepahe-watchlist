@@ -2,12 +2,18 @@
     box-sizing: border-box;
 }
 
+html {
+    background: #111;
+    overflow: hidden;
+}
+
 body {
     width: 320px;
     margin: 0;
     font-family: system-ui, sans-serif;
     background: #111;
     color: #fff;
+    overflow: hidden;
 }
 
 .popup {
@@ -399,6 +405,11 @@ input[type="text"] {
     background: rgba(255, 255, 255, 0.08);
     color: white;
     font-size: 12px;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.35);
 }
 
 input[type="text"]::placeholder {
