@@ -304,8 +304,8 @@ syncNowBtn.addEventListener("click", async () => {
     clearSyncError();
 
     try {
-        await saveLocalSyncKey(key);
         const count = await syncWatchlist(key);
+        await saveLocalSyncKey(key);
         await updatePopup();
 
         if (count === 0) {
