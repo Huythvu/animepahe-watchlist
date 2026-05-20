@@ -244,6 +244,8 @@ openSyncFormBtn.addEventListener("click", () => {
 
     if (!syncForm.classList.contains("hidden")) {
         syncKeyInput.focus();
+        customizePanel.classList.add("collapsed");
+        customizeToggle.classList.remove("open");
     }
 });
 
