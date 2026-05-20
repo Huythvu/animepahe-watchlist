@@ -6,35 +6,30 @@ const SYNC_KEY = "apw_sync_key";
 
 const SYNC_WORDS = [
     "mango", "tiger", "cloud", "ramen", "orbit",
-    "river", "pixel", "storm", "bamboo", "melon",
-    "dragon", "paper", "sakura", "toast", "rocket",
-    "forest", "lemon", "shadow", "silver", "panda",
-    "ocean", "berry", "comet", "lantern", "noodle",
-    "pearl", "sunny", "violet", "winter", "yuzu",
-    "apple", "coral", "ember", "frost", "ginger",
-    "hazel", "island", "jelly", "kiwi", "lotus",
-    "maple", "night", "olive", "peach", "quiet",
-    "rain", "snow", "tea", "umber", "velvet",
-    "wave", "xenon", "yellow", "zen", "fox",
-    "moon", "star", "breeze", "candy", "dango",
-    "echo", "flame", "glow", "honey", "iris",
-    "jade", "koala", "lime", "mist", "nova",
-    "onyx", "plum", "quartz", "rose", "shell",
-    "tulip", "unity", "valley", "willow", "zebra",
-    "acorn", "blossom", "coconut", "dream", "eagle",
-    "feather", "garden", "harbor", "ink", "jungle",
-    "karma", "lagoon", "meadow", "neon", "orange",
-    "penguin", "quokka", "ruby", "spirit", "temple",
-    "umbrella", "vanilla", "whisper", "yarn", "zephyr"
+    "river", "pixel", "storm", "melon", "paper",
+    "toast", "lemon", "panda", "ocean", "berry",
+    "comet", "pearl", "sunny", "yuzu", "apple",
+    "coral", "ember", "frost", "hazel", "jelly",
+    "kiwi", "lotus", "maple", "night", "olive",
+    "peach", "quiet", "rain", "snow", "tea",
+    "umber", "wave", "xenon", "zen", "fox",
+    "moon", "star", "candy", "dango", "echo",
+    "flame", "glow", "honey", "iris", "jade",
+    "koala", "lime", "mist", "nova", "onyx",
+    "plum", "rose", "shell", "tulip", "unity",
+    "zebra", "acorn", "dream", "eagle", "ink",
+    "karma", "neon", "ruby", "yarn", "dawn",
+    "dusk", "fern", "cove", "grove", "cedar"
 ];
 
 export function generateSyncKey() {
+    const pool = [...SYNC_WORDS];
     const words = [];
 
     for (let i = 0; i < 5; i++) {
         const randomNumber = crypto.getRandomValues(new Uint32Array(1))[0];
-        const index = randomNumber % SYNC_WORDS.length;
-        words.push(SYNC_WORDS[index]);
+        const index = randomNumber % pool.length;
+        words.push(pool.splice(index, 1)[0]);
     }
 
     return words.join(" ");
@@ -61,6 +56,10 @@ export function validateSyncKey(syncKey) {
 
     if (invalid.length > 0) {
         return `Unknown word${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`;
+    }
+
+    if (new Set(words).size !== words.length) {
+        return "Phrase cannot contain repeated words";
     }
 
     return null;
@@ -124,9 +123,11 @@ export async function syncWatchlist(syncKey) {
 
     const snap = await getDoc(doc(db, "watchlists", docId));
 
-    const cloudItems = snap.exists() && Array.isArray(snap.data().items)
-        ? snap.data().items
-        : [];
+    if (!snap.exists()) {
+        throw new Error("No watchlist found for this phrase. Use Generate to create one.");
+    }
+
+    const cloudItems = Array.isArray(snap.data().items) ? snap.data().items : [];
 
     const mergedItems = mergeWatchlists(localItems, cloudItems);
 
