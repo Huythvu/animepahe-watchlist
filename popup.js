@@ -38,6 +38,7 @@ const syncKeyInput = document.querySelector("#syncKey");
 const syncNowBtn = document.querySelector("#syncNow");
 const syncError = document.querySelector("#syncError");
 
+const syncHint = document.querySelector("#syncHint");
 const syncIdle = document.querySelector("#syncIdle");
 const syncActive = document.querySelector("#syncActive");
 const phraseWordsEl = document.querySelector("#phraseWords");
@@ -82,12 +83,14 @@ function showActiveState(phrase) {
         phraseWordsEl.appendChild(span);
     });
 
+    syncHint.classList.add("hidden");
     syncIdle.classList.add("hidden");
     syncActive.classList.remove("hidden");
 }
 
 function showIdleState() {
     syncActive.classList.add("hidden");
+    syncHint.classList.remove("hidden");
     syncIdle.classList.remove("hidden");
     syncForm.classList.add("hidden");
     clearSyncError();
