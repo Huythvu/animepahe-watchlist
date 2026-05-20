@@ -3,7 +3,6 @@ console.log("Popup JS loaded");
 import {
     generateSyncKey,
     getLocalSyncKey,
-    getLastSyncedAt,
     clearLocalSyncKey,
     saveLocalSyncKey,
     validateSyncKey,
@@ -11,8 +10,8 @@ import {
     syncWatchlist
 } from "./sync.js";
 
-const WARN_AFTER_MS = 75 * 24 * 60 * 60 * 1000;
-const TTL_MS        = 90 * 24 * 60 * 60 * 1000;
+const GENERATE_COOLDOWN_KEY = "apw_generate_cooldown";
+const GENERATE_COOLDOWN_MS  = 60 * 1000;
 
 const STORAGE_KEY = "recently_watched";
 const SETTINGS_KEY = "apw_settings";
@@ -60,7 +59,6 @@ const syncForm = document.querySelector("#syncForm");
 const syncKeyInput = document.querySelector("#syncKey");
 const syncNowBtn = document.querySelector("#syncNow");
 const syncError = document.querySelector("#syncError");
-const syncExpiryEl = document.querySelector("#syncExpiry");
 const syncHint = document.querySelector("#syncHint");
 const syncIdle = document.querySelector("#syncIdle");
 const syncActive = document.querySelector("#syncActive");
@@ -171,29 +169,44 @@ async function updatePopup() {
 
     if (syncKey) {
         showActiveState(syncKey);
-        await updateExpiryWarning();
     } else {
         showIdleState();
     }
+
+    await updateGenerateCooldown();
 }
 
-async function updateExpiryWarning() {
-    const lastSynced = await getLastSyncedAt();
+// ---------- Generate cooldown ----------
 
-    if (!lastSynced) {
-        syncExpiryEl.classList.add("hidden");
+let cooldownInterval = null;
+
+async function updateGenerateCooldown() {
+    const data = await chrome.storage.local.get([GENERATE_COOLDOWN_KEY]);
+    const cooldownUntil = data[GENERATE_COOLDOWN_KEY] || 0;
+    const remaining = cooldownUntil - Date.now();
+
+    if (remaining <= 0) {
+        createSyncBtn.disabled = false;
+        createSyncBtn.textContent = "Generate sync phrase";
+        clearInterval(cooldownInterval);
         return;
     }
 
-    const age = Date.now() - lastSynced;
+    const tick = () => {
+        const left = Math.ceil((cooldownUntil - Date.now()) / 1000);
+        if (left <= 0) {
+            createSyncBtn.disabled = false;
+            createSyncBtn.textContent = "Generate sync phrase";
+            clearInterval(cooldownInterval);
+        } else {
+            createSyncBtn.disabled = true;
+            createSyncBtn.textContent = `Wait ${left}s`;
+        }
+    };
 
-    if (age >= WARN_AFTER_MS) {
-        const daysLeft = Math.max(0, Math.ceil((TTL_MS - age) / (24 * 60 * 60 * 1000)));
-        syncExpiryEl.textContent = `Cloud list expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"} · visit AnimePahe to refresh`;
-        syncExpiryEl.classList.remove("hidden");
-    } else {
-        syncExpiryEl.classList.add("hidden");
-    }
+    tick();
+    clearInterval(cooldownInterval);
+    cooldownInterval = setInterval(tick, 1000);
 }
 
 // ---------- Widget toggle ----------
@@ -319,8 +332,10 @@ syncNowBtn.addEventListener("click", async () => {
 
 disconnectBtn.addEventListener("click", async () => {
     await clearLocalSyncKey();
+    await chrome.storage.local.set({ [GENERATE_COOLDOWN_KEY]: Date.now() + GENERATE_COOLDOWN_MS });
     showIdleState();
     setStatus("Disconnected.");
+    updateGenerateCooldown();
 });
 
 copyPhraseBtn.addEventListener("click", async () => {
