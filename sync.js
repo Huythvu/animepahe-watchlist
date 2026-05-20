@@ -6,26 +6,20 @@ const SYNC_KEY = "apw_sync_key";
 
 const SYNC_WORDS = [
     "mango", "tiger", "cloud", "ramen", "orbit",
-    "river", "pixel", "storm", "bamboo", "melon",
-    "dragon", "paper", "sakura", "toast", "rocket",
-    "forest", "lemon", "shadow", "silver", "panda",
-    "ocean", "berry", "comet", "lantern", "noodle",
-    "pearl", "sunny", "violet", "winter", "yuzu",
-    "apple", "coral", "ember", "frost", "ginger",
-    "hazel", "island", "jelly", "kiwi", "lotus",
-    "maple", "night", "olive", "peach", "quiet",
-    "rain", "snow", "tea", "umber", "velvet",
-    "wave", "xenon", "yellow", "zen", "fox",
-    "moon", "star", "breeze", "candy", "dango",
-    "echo", "flame", "glow", "honey", "iris",
-    "jade", "koala", "lime", "mist", "nova",
-    "onyx", "plum", "quartz", "rose", "shell",
-    "tulip", "unity", "valley", "willow", "zebra",
-    "acorn", "blossom", "coconut", "dream", "eagle",
-    "feather", "garden", "harbor", "ink", "jungle",
-    "karma", "lagoon", "meadow", "neon", "orange",
-    "penguin", "quokka", "ruby", "spirit", "temple",
-    "umbrella", "vanilla", "whisper", "yarn", "zephyr"
+    "river", "pixel", "storm", "melon", "paper",
+    "toast", "lemon", "panda", "ocean", "berry",
+    "comet", "pearl", "sunny", "yuzu", "apple",
+    "coral", "ember", "frost", "hazel", "jelly",
+    "kiwi", "lotus", "maple", "night", "olive",
+    "peach", "quiet", "rain", "snow", "tea",
+    "umber", "wave", "xenon", "zen", "fox",
+    "moon", "star", "candy", "dango", "echo",
+    "flame", "glow", "honey", "iris", "jade",
+    "koala", "lime", "mist", "nova", "onyx",
+    "plum", "rose", "shell", "tulip", "unity",
+    "zebra", "acorn", "dream", "eagle", "ink",
+    "karma", "neon", "ruby", "yarn", "dawn",
+    "dusk", "fern", "cove", "grove", "cedar"
 ];
 
 export function generateSyncKey() {
