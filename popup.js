@@ -117,7 +117,7 @@ function showIdleState() {
 
 function updateWidgetPill(enabled) {
     widgetDot.classList.toggle("pill-dot-off", !enabled);
-    widgetLabel.textContent = enabled ? "Showing" : "Hidden";
+    widgetLabel.textContent = enabled ? "Enabled" : "Disabled";
     widgetToggle.classList.toggle("pill-toggle-off", !enabled);
 }
 
