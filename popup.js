@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const MAX_WATCHING = 20;
-const MAX_PLAN = 20;
+const MAX_PLAN = 50;
 
 // Stat elements
 const watchingCountEl = document.querySelector("#watchingCount");
