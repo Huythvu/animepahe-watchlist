@@ -180,12 +180,23 @@ widgetToggle.addEventListener("click", async () => {
     updateWidgetPill(newValue);
 });
 
+function instantCollapse(panel) {
+    panel.style.transition = "none";
+    panel.classList.add("collapsed");
+    requestAnimationFrame(() => { panel.style.transition = ""; });
+}
+
 // ---------- Customize toggle ----------
 
 customizeToggle.addEventListener("click", () => {
     const isOpen = !customizePanel.classList.contains("collapsed");
     customizePanel.classList.toggle("collapsed", isOpen);
     customizeToggle.classList.toggle("open", !isOpen);
+
+    if (!isOpen) {
+        syncForm.classList.add("hidden");
+        clearSyncError();
+    }
 });
 
 // ---------- Alignment ----------
@@ -244,7 +255,7 @@ openSyncFormBtn.addEventListener("click", () => {
 
     if (!syncForm.classList.contains("hidden")) {
         syncKeyInput.focus();
-        customizePanel.classList.add("collapsed");
+        instantCollapse(customizePanel);
         customizeToggle.classList.remove("open");
     }
 });
