@@ -23,12 +23,13 @@ const SYNC_WORDS = [
 ];
 
 export function generateSyncKey() {
+    const pool = [...SYNC_WORDS];
     const words = [];
 
     for (let i = 0; i < 5; i++) {
         const randomNumber = crypto.getRandomValues(new Uint32Array(1))[0];
-        const index = randomNumber % SYNC_WORDS.length;
-        words.push(SYNC_WORDS[index]);
+        const index = randomNumber % pool.length;
+        words.push(pool.splice(index, 1)[0]);
     }
 
     return words.join(" ");
@@ -55,6 +56,10 @@ export function validateSyncKey(syncKey) {
 
     if (invalid.length > 0) {
         return `Unknown word${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`;
+    }
+
+    if (new Set(words).size !== words.length) {
+        return "Phrase cannot contain repeated words";
     }
 
     return null;
@@ -118,9 +123,11 @@ export async function syncWatchlist(syncKey) {
 
     const snap = await getDoc(doc(db, "watchlists", docId));
 
-    const cloudItems = snap.exists() && Array.isArray(snap.data().items)
-        ? snap.data().items
-        : [];
+    if (!snap.exists()) {
+        throw new Error("No watchlist found for this phrase. Use Generate to create one.");
+    }
+
+    const cloudItems = Array.isArray(snap.data().items) ? snap.data().items : [];
 
     const mergedItems = mergeWatchlists(localItems, cloudItems);
 
