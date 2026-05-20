@@ -75,13 +75,13 @@
                 </label>
 
                 <label class="toggle">
-                    <input type="checkbox" id="showLastWatched">
-                    <span>Show last watched time</span>
+                    <input type="checkbox" id="showProgress">
+                    <span>Show progress text</span>
                 </label>
 
                 <label class="toggle">
-                    <input type="checkbox" id="showProgress">
-                    <span>Show progress text</span>
+                    <input type="checkbox" id="showLastWatched">
+                    <span>Show last watched time</span>
                 </label>
             </div>
         </section>
@@ -119,8 +119,12 @@
             <div id="syncActive" class="hidden">
                 <p class="phrase-label">Active sync phrase</p>
                 <div id="phraseWords" class="phrase-words"></div>
-                <button id="copyPhrase" class="copy-phrase-btn">Copy phrase</button>
-                <p class="synced-status"><span class="status-dot"></span>Synced</p>
+                <div class="sync-action-row">
+                    <button id="copyPhrase" class="copy-phrase-btn">Copy phrase</button>
+                    <div class="synced-badge">
+                        <span class="status-dot"></span>Synced
+                    </div>
+                </div>
                 <button id="disconnectSync" class="disconnect-btn">Disconnect sync</button>
             </div>
 
