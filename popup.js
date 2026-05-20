@@ -17,27 +17,46 @@ const DEFAULT_SETTINGS = {
     showCountdowns: true,
     showNewEpisodeBadges: true,
     showFilters: true,
-    currentFilter: "watching"
+    currentFilter: "watching",
+    widgetEnabled: true,
+    cardAlignment: "center",
+    showEpisodeNumber: true,
+    showLastWatched: true,
+    showProgress: true
 };
 
 const MAX_WATCHING = 20;
 const MAX_PLAN = 20;
 
+// Stat elements
 const watchingCountEl = document.querySelector("#watchingCount");
 const planCountEl = document.querySelector("#planCount");
 const watchingCapWarningEl = document.querySelector("#watchingCapWarning");
 const planCapWarningEl = document.querySelector("#planCapWarning");
-const showCountdownsEl = document.querySelector("#showCountdowns");
-const showBadgesEl = document.querySelector("#showBadges");
 const statusEl = document.querySelector("#status");
 
+// Header pills
+const widgetToggle = document.querySelector("#widgetToggle");
+const widgetDot = document.querySelector("#widgetDot");
+const widgetLabel = document.querySelector("#widgetLabel");
+
+// Customize section
+const customizeToggle = document.querySelector("#customizeToggle");
+const customizePanel = document.querySelector("#customizePanel");
+const showCountdownsEl = document.querySelector("#showCountdowns");
+const showBadgesEl = document.querySelector("#showBadges");
+const showEpisodeNumberEl = document.querySelector("#showEpisodeNumber");
+const showLastWatchedEl = document.querySelector("#showLastWatched");
+const showProgressEl = document.querySelector("#showProgress");
+
+// Sync elements
 const createSyncBtn = document.querySelector("#createSync");
 const openSyncFormBtn = document.querySelector("#openSyncForm");
 const syncForm = document.querySelector("#syncForm");
 const syncKeyInput = document.querySelector("#syncKey");
 const syncNowBtn = document.querySelector("#syncNow");
 const syncError = document.querySelector("#syncError");
-
+const syncHint = document.querySelector("#syncHint");
 const syncIdle = document.querySelector("#syncIdle");
 const syncActive = document.querySelector("#syncActive");
 const phraseWordsEl = document.querySelector("#phraseWords");
@@ -82,16 +101,30 @@ function showActiveState(phrase) {
         phraseWordsEl.appendChild(span);
     });
 
+    syncHint.classList.add("hidden");
     syncIdle.classList.add("hidden");
     syncActive.classList.remove("hidden");
 }
 
 function showIdleState() {
     syncActive.classList.add("hidden");
+    syncHint.classList.remove("hidden");
     syncIdle.classList.remove("hidden");
     syncForm.classList.add("hidden");
     clearSyncError();
     syncKeyInput.value = "";
+}
+
+function updateWidgetPill(enabled) {
+    widgetDot.classList.toggle("pill-dot-off", !enabled);
+    widgetLabel.textContent = enabled ? "Enabled" : "Disabled";
+    widgetToggle.classList.toggle("pill-toggle-off", !enabled);
+}
+
+function updateAlignmentBtns(alignment) {
+    document.querySelectorAll(".align-btn").forEach(btn => {
+        btn.classList.toggle("align-btn-active", btn.dataset.align === alignment);
+    });
 }
 
 async function getWatched() {
@@ -122,8 +155,14 @@ async function updatePopup() {
     watchingCapWarningEl.classList.toggle("hidden", watchingCount < MAX_WATCHING);
     planCapWarningEl.classList.toggle("hidden", planCount < MAX_PLAN);
 
+    updateWidgetPill(settings.widgetEnabled !== false);
+    updateAlignmentBtns(settings.cardAlignment || "center");
+
     showCountdownsEl.checked = settings.showCountdowns;
     showBadgesEl.checked = settings.showNewEpisodeBadges;
+    showEpisodeNumberEl.checked = settings.showEpisodeNumber !== false;
+    showLastWatchedEl.checked = settings.showLastWatched !== false;
+    showProgressEl.checked = settings.showProgress !== false;
 
     if (syncKey) {
         showActiveState(syncKey);
@@ -132,15 +171,55 @@ async function updatePopup() {
     }
 }
 
+// ---------- Widget toggle ----------
+
+widgetToggle.addEventListener("click", async () => {
+    const settings = await getSettings();
+    const newValue = settings.widgetEnabled === false ? true : false;
+    await saveSettings({ widgetEnabled: newValue });
+    updateWidgetPill(newValue);
+});
+
+// ---------- Customize toggle ----------
+
+customizeToggle.addEventListener("click", () => {
+    const isOpen = !customizePanel.classList.contains("collapsed");
+    customizePanel.classList.toggle("collapsed", isOpen);
+    customizeToggle.classList.toggle("open", !isOpen);
+});
+
+// ---------- Alignment ----------
+
+document.querySelectorAll(".align-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+        await saveSettings({ cardAlignment: btn.dataset.align });
+        updateAlignmentBtns(btn.dataset.align);
+    });
+});
+
+// ---------- Customize checkboxes ----------
+
 showCountdownsEl.addEventListener("change", async () => {
     await saveSettings({ showCountdowns: showCountdownsEl.checked });
-    setStatus("Countdown setting saved");
 });
 
 showBadgesEl.addEventListener("change", async () => {
     await saveSettings({ showNewEpisodeBadges: showBadgesEl.checked });
-    setStatus("Badge setting saved");
 });
+
+showEpisodeNumberEl.addEventListener("change", async () => {
+    await saveSettings({ showEpisodeNumber: showEpisodeNumberEl.checked });
+});
+
+showLastWatchedEl.addEventListener("change", async () => {
+    await saveSettings({ showLastWatched: showLastWatchedEl.checked });
+});
+
+showProgressEl.addEventListener("change", async () => {
+    await saveSettings({ showProgress: showProgressEl.checked });
+});
+
+// ---------- Sync ----------
 
 createSyncBtn.addEventListener("click", async () => {
     setButtonLoading(createSyncBtn, true, "Generating...", "Generate sync phrase");
@@ -172,7 +251,6 @@ syncKeyInput.addEventListener("input", clearSyncError);
 
 syncNowBtn.addEventListener("click", async () => {
     const key = syncKeyInput.value.trim();
-
     const error = validateSyncKey(key);
 
     if (error) {

@@ -21,7 +21,12 @@ const DEFAULT_SETTINGS = {
     showCountdowns: true,
     showNewEpisodeBadges: true,
     showFilters: true,
-    currentFilter: "watching"
+    currentFilter: "watching",
+    widgetEnabled: true,
+    cardAlignment: "center",
+    showEpisodeNumber: true,
+    showLastWatched: true,
+    showProgress: true
 };
 
 let countdownTargets = new Map();
@@ -470,9 +475,14 @@ function injectStyles() {
             scroll-behavior: auto;
         }
 
-        .apw-list.apw-centered {
-            justify-content: center;
-        }
+        .apw-list.apw-centered.apw-align-center { justify-content: center; }
+        .apw-list.apw-centered.apw-align-right  { justify-content: flex-end; }
+
+        #animepahe-watchlist.apw-hide-badges .apw-new-badge   { display: none; }
+        #animepahe-watchlist.apw-hide-airing .apw-airing-badge { display: none; }
+        #animepahe-watchlist.apw-hide-episode .apw-episode-text { display: none; }
+        #animepahe-watchlist.apw-hide-when .apw-when           { display: none; }
+        #animepahe-watchlist.apw-hide-progress .apw-progress   { display: none; }
 
         .apw-list a,
         .apw-list img {
@@ -859,6 +869,26 @@ async function updateMeta() {
         meta.textContent = `${visibleCards} shown`;
         meta.classList.remove("apw-meta-capped");
     }
+}
+
+async function applyAlignment() {
+    const list = document.querySelector("#animepahe-watchlist .apw-list");
+    if (!list) return;
+    const settings = await getSettings();
+    list.classList.remove("apw-align-left", "apw-align-center", "apw-align-right");
+    list.classList.add(`apw-align-${settings.cardAlignment || "center"}`);
+    updateArrows();
+}
+
+async function applySettingsClasses() {
+    const section = document.querySelector("#animepahe-watchlist");
+    if (!section) return;
+    const settings = await getSettings();
+    section.classList.toggle("apw-hide-badges", !settings.showNewEpisodeBadges);
+    section.classList.toggle("apw-hide-airing", !settings.showCountdowns);
+    section.classList.toggle("apw-hide-episode", settings.showEpisodeNumber === false);
+    section.classList.toggle("apw-hide-when", settings.showLastWatched === false);
+    section.classList.toggle("apw-hide-progress", settings.showProgress === false);
 }
 
 function enableDragScroll(slider) {
@@ -1293,6 +1323,9 @@ async function applyCountdowns(section) {
 
 // ---------- Render ----------
 async function renderWatchlist() {
+    const widgetSettings = await getSettings();
+    if (widgetSettings.widgetEnabled === false) return;
+
     let list = await getWatched();
 
     console.log("[APW] Rendering with", list.length, "items");
@@ -1467,6 +1500,8 @@ async function renderWatchlist() {
             updateMeta();
             await updateTabCounts();
             await applyFilters();
+            await applyAlignment();
+            await applySettingsClasses();
         });
 
         window.addEventListener("resize", updateArrows);
@@ -1621,6 +1656,37 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
 }
+
+// ---------- Settings change listener ----------
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !isHomePage) return;
+    if (!(SETTINGS_KEY in changes)) return;
+
+    const newSettings = changes[SETTINGS_KEY].newValue || {};
+    const oldSettings = changes[SETTINGS_KEY].oldValue || {};
+
+    if (newSettings.widgetEnabled !== oldSettings.widgetEnabled) {
+        if (newSettings.widgetEnabled !== false) {
+            injectStyles();
+            renderWatchlist();
+        } else {
+            const section = document.querySelector("#animepahe-watchlist");
+            if (section) section.remove();
+            countdownTargets.clear();
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+        return;
+    }
+
+    if (newSettings.cardAlignment !== oldSettings.cardAlignment) {
+        applyAlignment();
+    }
+
+    applySettingsClasses();
+});
 
 // ---------- Run ----------
 if (isPlayPage) {

@@ -8,8 +8,19 @@
 <body>
     <main class="popup">
         <header class="header">
-            <h1>Animepahe Watchlist</h1>
-            <p class="subtitle">Manage and sync your watchlist.</p>
+            <div class="header-text">
+                <h1>Animepahe Watchlist</h1>
+                <p class="subtitle">Manage and sync your watchlist.</p>
+            </div>
+            <div class="header-actions">
+                <a href="https://animepahe.pw" target="_blank" class="header-pill pill-link">
+                    AnimePahe ↗
+                </a>
+                <button id="widgetToggle" class="header-pill pill-toggle">
+                    <span class="pill-dot" id="widgetDot"></span>
+                    <span id="widgetLabel">Showing</span>
+                </button>
+            </div>
         </header>
 
         <section class="stats">
@@ -32,22 +43,53 @@
             </p>
         </section>
 
-        <section class="settings-section">
-            <label class="toggle">
-                <input type="checkbox" id="showCountdowns">
-                <span>Show airing countdowns</span>
-            </label>
+        <section class="customize-section">
+            <button class="section-toggle" id="customizeToggle">
+                <span>Customize widget</span>
+                <span class="chevron">›</span>
+            </button>
 
-            <label class="toggle">
-                <input type="checkbox" id="showBadges">
-                <span>Show new episode badges</span>
-            </label>
+            <div class="collapsible collapsed" id="customizePanel">
+                <div class="alignment-row">
+                    <span class="align-label">Alignment</span>
+                    <div class="align-btns">
+                        <button class="align-btn" data-align="left">Left</button>
+                        <button class="align-btn" data-align="center">Center</button>
+                        <button class="align-btn" data-align="right">Right</button>
+                    </div>
+                </div>
+
+                <label class="toggle">
+                    <input type="checkbox" id="showCountdowns">
+                    <span>Show airing countdowns</span>
+                </label>
+
+                <label class="toggle">
+                    <input type="checkbox" id="showBadges">
+                    <span>Show new episode badges</span>
+                </label>
+
+                <label class="toggle">
+                    <input type="checkbox" id="showEpisodeNumber">
+                    <span>Show episode number</span>
+                </label>
+
+                <label class="toggle">
+                    <input type="checkbox" id="showLastWatched">
+                    <span>Show last watched time</span>
+                </label>
+
+                <label class="toggle">
+                    <input type="checkbox" id="showProgress">
+                    <span>Show progress text</span>
+                </label>
+            </div>
         </section>
 
         <section class="sync-section">
             <h2>Sync</h2>
 
-            <p class="hint">
+            <p id="syncHint" class="hint">
                 5-word phrase to sync your watchlist across browsers.
             </p>
 
