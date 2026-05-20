@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { db } from "./firebase-config.js";
 
 const STORAGE_KEY = "recently_watched";
@@ -96,7 +96,7 @@ export async function uploadWatchlist(syncKey) {
     const safeItems = sanitizeItems(items);
 
     await setDoc(doc(db, "watchlists", docId), {
-        updatedAt: Date.now(),
+        updatedAt: Timestamp.now(),
         items: safeItems
     });
 
@@ -146,7 +146,7 @@ export async function syncWatchlist(syncKey) {
     });
 
     await setDoc(doc(db, "watchlists", docId), {
-        updatedAt: Date.now(),
+        updatedAt: Timestamp.now(),
         items: sanitizeItems(mergedItems)
     });
 
