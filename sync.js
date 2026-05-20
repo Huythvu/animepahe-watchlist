@@ -142,18 +142,6 @@ export async function syncWatchlist(syncKey) {
     return mergedItems.length;
 }
 
-export async function autoUploadWatchlist() {
-    const syncKey = await getLocalSyncKey();
-
-    if (!syncKey) {
-        console.log("Auto-upload skipped: no sync phrase saved");
-        return false;
-    }
-
-    await uploadWatchlist(syncKey);
-    return true;
-}
-
 async function syncKeyToDocumentId(syncKey) {
     const normalized = normalizeSyncKey(syncKey);
 
@@ -181,8 +169,7 @@ function normalizeSyncKey(syncKey) {
         .replace(/\s+/g, " ");
 }
 
-function isValidSyncKey(syncKey) {
-    const normalized = normalizeSyncKey(syncKey);
+function isValidSyncKey(normalized) {
     const words = normalized.split(" ");
 
     return words.length === 5 &&
@@ -220,6 +207,7 @@ function mergeWatchlists(localItems, cloudItems) {
             return bTime - aTime;
         })
         .slice(0, 200);
+
 }
 
 function sanitizeItems(items) {

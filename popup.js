@@ -1,5 +1,3 @@
-console.log("Popup JS loaded");
-
 import {
     generateSyncKey,
     getLocalSyncKey,
@@ -9,6 +7,9 @@ import {
     uploadWatchlist,
     syncWatchlist
 } from "./sync.js";
+
+const GENERATE_COOLDOWN_KEY = "apw_generate_cooldown";
+const GENERATE_COOLDOWN_MS  = 60 * 1000;
 
 const STORAGE_KEY = "recently_watched";
 const SETTINGS_KEY = "apw_settings";
@@ -26,7 +27,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const MAX_WATCHING = 20;
-const MAX_PLAN = 20;
+const MAX_PLAN = 50;
 
 // Stat elements
 const watchingCountEl = document.querySelector("#watchingCount");
@@ -169,6 +170,40 @@ async function updatePopup() {
     } else {
         showIdleState();
     }
+
+    await updateGenerateCooldown();
+}
+
+// ---------- Generate cooldown ----------
+
+let cooldownInterval = null;
+
+async function updateGenerateCooldown() {
+    const data = await chrome.storage.local.get([GENERATE_COOLDOWN_KEY]);
+    const cooldownUntil = data[GENERATE_COOLDOWN_KEY] || 0;
+    const remaining = cooldownUntil - Date.now();
+
+    if (remaining <= 0) {
+        createSyncBtn.disabled = false;
+        createSyncBtn.textContent = "Generate sync phrase";
+        return;
+    }
+
+    const tick = () => {
+        const left = Math.ceil((cooldownUntil - Date.now()) / 1000);
+        if (left <= 0) {
+            createSyncBtn.disabled = false;
+            createSyncBtn.textContent = "Generate sync phrase";
+            clearInterval(cooldownInterval);
+        } else {
+            createSyncBtn.disabled = true;
+            createSyncBtn.textContent = `Wait ${left}s`;
+        }
+    };
+
+    tick();
+    clearInterval(cooldownInterval);
+    cooldownInterval = setInterval(tick, 1000);
 }
 
 // ---------- Widget toggle ----------
@@ -294,8 +329,10 @@ syncNowBtn.addEventListener("click", async () => {
 
 disconnectBtn.addEventListener("click", async () => {
     await clearLocalSyncKey();
+    await chrome.storage.local.set({ [GENERATE_COOLDOWN_KEY]: Date.now() + GENERATE_COOLDOWN_MS });
     showIdleState();
     setStatus("Disconnected.");
+    updateGenerateCooldown();
 });
 
 copyPhraseBtn.addEventListener("click", async () => {
