@@ -1390,7 +1390,7 @@ async function renderWatchlist() {
                     <button class="apw-arrow apw-arrow-left" aria-label="Scroll left">‹</button>
 
                     <div class="apw-viewport">
-                        <div class="apw-list">${list.map(buildCard).join("")}</div>
+                        <div class="apw-list">${list.map(entry => buildCard(entry, widgetSettings.currentFilter)).join("")}</div>
                     </div>
 
                     <button class="apw-arrow apw-arrow-right" aria-label="Scroll right">›</button>
@@ -1510,9 +1510,10 @@ function refreshWatchlist() {
     }
 }
 
-function buildCard(entry) {
+function buildCard(entry, currentFilter = "watching") {
     const status = entry.status || "watching";
     const isPlan = status === "plan";
+    const hidden = status !== currentFilter;
 
     const thumb = entry.thumb || "";
     const animeUrl = entry.animeUrl || "#";
@@ -1538,7 +1539,7 @@ function buildCard(entry) {
 
     return `
         <div
-            class="apw-wrap"
+            class="apw-wrap${hidden ? " apw-hidden" : ""}"
             data-anime="${animeAttr}"
             data-status="${status}"
             data-has-new="false"
