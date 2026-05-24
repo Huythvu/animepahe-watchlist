@@ -949,16 +949,7 @@ async function applyFilters() {
 
     cards.forEach(card => {
         const status = card.dataset.status || "watching";
-
-        let shouldShow = true;
-
-        if (settings.currentFilter === "watching") {
-            shouldShow = status === "watching";
-        }
-
-        if (settings.currentFilter === "plan") {
-            shouldShow = status === "plan";
-        }
+        const shouldShow = status === settings.currentFilter;
 
         card.classList.toggle("apw-hidden", !shouldShow);
 
@@ -1676,7 +1667,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ---------- Run ----------
 if (isPlayPage) {
-    trySaveWithRetry();
+    getSettings().then(settings => {
+        if (settings.widgetEnabled !== false) {
+            trySaveWithRetry();
+        }
+    });
 }
 
 if (isHomePage) {
