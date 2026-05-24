@@ -1676,7 +1676,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ---------- Run ----------
 if (isPlayPage) {
-    trySaveWithRetry();
+    getSettings().then(settings => {
+        if (settings.widgetEnabled !== false) {
+            trySaveWithRetry();
+        }
+    });
 }
 
 if (isHomePage) {
