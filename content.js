@@ -949,16 +949,7 @@ async function applyFilters() {
 
     cards.forEach(card => {
         const status = card.dataset.status || "watching";
-
-        let shouldShow = true;
-
-        if (settings.currentFilter === "watching") {
-            shouldShow = status === "watching";
-        }
-
-        if (settings.currentFilter === "plan") {
-            shouldShow = status === "plan";
-        }
+        const shouldShow = status === settings.currentFilter;
 
         card.classList.toggle("apw-hidden", !shouldShow);
 
