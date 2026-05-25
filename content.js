@@ -333,6 +333,82 @@ async function getCountdownForEntry(entry) {
     }
 }
 
+// ---------- URL resolution ----------
+const resolvedAnimeCache = new Map();
+
+async function searchAnimepahe(title) {
+    const res = await fetch(`/api?m=search&q=${encodeURIComponent(title)}`, {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) throw new Error("Search request failed");
+    const data = await res.json();
+    return Array.isArray(data?.data) ? data.data : [];
+}
+
+async function fetchEpisodeList(animeSession, episodeNumber) {
+    const page = Math.max(1, Math.ceil(parseFloat(episodeNumber) / 30));
+    const res = await fetch(`/api?m=release&id=${encodeURIComponent(animeSession)}&sort=episode_asc&page=${page}`, {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) throw new Error("Release request failed");
+    const data = await res.json();
+    return Array.isArray(data?.data) ? data.data : [];
+}
+
+async function updateEntryAnimeId(animeUrl, animeId) {
+    const list = await getWatched();
+    const idx = list.findIndex(item => item.animeUrl === animeUrl);
+    if (idx === -1 || list[idx].animeId === animeId) return;
+    list[idx].animeId = animeId;
+    await saveWatched(list);
+}
+
+async function resolveFreshUrl(entry, type) {
+    const cacheKey = entry.animeId ?? entry.title;
+    let cached = resolvedAnimeCache.get(cacheKey);
+
+    if (!cached) {
+        const results = await searchAnimepahe(entry.title);
+        if (!results.length) throw new Error("Anime not found in search");
+
+        const match = entry.animeId
+            ? results.find(a => a.id === entry.animeId)
+            : results[0];
+
+        if (!match) throw new Error("Anime not found in search");
+
+        cached = { session: match.session, id: match.id, episodes: new Map() };
+        resolvedAnimeCache.set(cacheKey, cached);
+        resolvedAnimeCache.set(match.id, cached);
+
+        if (!entry.animeId) {
+            updateEntryAnimeId(entry.animeUrl, match.id).catch(() => {});
+        }
+    }
+
+    if (type === "anime") {
+        return `/anime/${cached.session}`;
+    }
+
+    const epNum = parseFloat(entry.episode);
+    if (isNaN(epNum)) throw new Error("Invalid episode number");
+
+    if (!cached.episodes.has(epNum)) {
+        const episodes = await fetchEpisodeList(cached.session, epNum);
+        episodes.forEach(ep => {
+            const n = parseFloat(ep.episode);
+            if (!isNaN(n)) cached.episodes.set(n, ep.session);
+        });
+    }
+
+    const epSession = cached.episodes.get(epNum);
+    if (!epSession) throw new Error("Episode not found on site");
+
+    return `/play/${cached.session}/${epSession}`;
+}
+
 // ---------- Styles ----------
 function injectStyles() {
     if (document.querySelector("#apw-styles")) return;
@@ -758,6 +834,12 @@ function injectStyles() {
 
         .apw-toast.apw-toast-visible {
             display: block;
+        }
+
+        .apw-wrap.apw-resolving {
+            opacity: 0.6;
+            pointer-events: none;
+            transition: opacity 0.12s ease;
         }
     `;
 
@@ -1448,6 +1530,36 @@ async function renderWatchlist() {
                 });
 
                 await applyFilters();
+                return;
+            }
+
+            const playLink = e.target.closest(".apw-play-link");
+            const titleLink = e.target.closest(".apw-title a");
+            const linkEl = playLink || titleLink;
+
+            if (linkEl) {
+                e.preventDefault();
+
+                const wrap = linkEl.closest(".apw-wrap");
+                const animeUrl = wrap?.getAttribute("data-anime");
+                if (!animeUrl) return;
+
+                const list = await getWatched();
+                const entry = list.find(item => item.animeUrl === animeUrl);
+                if (!entry) return;
+
+                const isPlan = (entry.status || "watching") === "plan";
+                const type = (playLink && !isPlan) ? "play" : "anime";
+
+                wrap.classList.add("apw-resolving");
+
+                try {
+                    const freshUrl = await resolveFreshUrl(entry, type);
+                    window.location.href = freshUrl;
+                } catch (err) {
+                    console.error("[APW] URL resolution failed, opening stored URL:", err);
+                    window.location.href = linkEl.href;
+                }
             }
         });
 
