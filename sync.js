@@ -214,15 +214,19 @@ function mergeWatchlists(localItems, cloudItems) {
 function sanitizeItems(items) {
     return items
         .slice(0, 200)
-        .map(item => ({
-            title: String(item.title || ""),
-            episode: item.episode ? String(item.episode) : "",
-            playUrl: String(item.playUrl || ""),
-            animeUrl: String(item.animeUrl || ""),
-            thumb: String(item.thumb || ""),
-            ts: Number(item.ts || Date.now()),
-            status: item.status === "plan" ? "plan" : "watching",
-            statusTs: Number(item.statusTs || item.ts || Date.now())
-        }))
+        .map(item => {
+            const out = {
+                title: String(item.title || ""),
+                episode: item.episode ? String(item.episode) : "",
+                playUrl: String(item.playUrl || ""),
+                animeUrl: String(item.animeUrl || ""),
+                thumb: String(item.thumb || ""),
+                ts: Number(item.ts || Date.now()),
+                status: item.status === "plan" ? "plan" : "watching",
+                statusTs: Number(item.statusTs || item.ts || Date.now())
+            };
+            if (Number.isInteger(item.animeId)) out.animeId = item.animeId;
+            return out;
+        })
         .filter(item => item.title && item.animeUrl);
 }
