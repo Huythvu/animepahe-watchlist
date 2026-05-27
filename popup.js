@@ -15,19 +15,13 @@ const STORAGE_KEY = "recently_watched";
 const SETTINGS_KEY = "apw_settings";
 
 const DEFAULT_SETTINGS = {
-    showCountdowns: true,
-    showNewEpisodeBadges: true,
-    showFilters: true,
-    currentFilter: "watching",
-    widgetEnabled: true,
-    cardAlignment: "center",
-    showEpisodeNumber: true,
-    showLastWatched: true,
-    showProgress: true
+    widgetEnabled: true
 };
 
 const MAX_WATCHING = 20;
 const MAX_PLAN = 50;
+
+const PANEL_OPEN_FLAG = "apw_open_panel_on_load";
 
 // Stat elements
 const watchingCountEl = document.querySelector("#watchingCount");
@@ -41,14 +35,8 @@ const widgetToggle = document.querySelector("#widgetToggle");
 const widgetDot = document.querySelector("#widgetDot");
 const widgetLabel = document.querySelector("#widgetLabel");
 
-// Customize section
-const customizeToggle = document.querySelector("#customizeToggle");
-const customizePanel = document.querySelector("#customizePanel");
-const showCountdownsEl = document.querySelector("#showCountdowns");
-const showBadgesEl = document.querySelector("#showBadges");
-const showEpisodeNumberEl = document.querySelector("#showEpisodeNumber");
-const showLastWatchedEl = document.querySelector("#showLastWatched");
-const showProgressEl = document.querySelector("#showProgress");
+// Open settings
+const openSettingsBtn = document.querySelector("#openSettings");
 
 // Sync elements
 const createSyncBtn = document.querySelector("#createSync");
@@ -122,12 +110,6 @@ function updateWidgetPill(enabled) {
     widgetToggle.classList.toggle("pill-toggle-off", !enabled);
 }
 
-function updateAlignmentBtns(alignment) {
-    document.querySelectorAll(".align-btn").forEach(btn => {
-        btn.classList.toggle("align-btn-active", btn.dataset.align === alignment);
-    });
-}
-
 async function getWatched() {
     const data = await chrome.storage.local.get([STORAGE_KEY]);
     return data[STORAGE_KEY] || [];
@@ -157,13 +139,6 @@ async function updatePopup() {
     planCapWarningEl.classList.toggle("hidden", planCount < MAX_PLAN);
 
     updateWidgetPill(settings.widgetEnabled !== false);
-    updateAlignmentBtns(settings.cardAlignment || "center");
-
-    showCountdownsEl.checked = settings.showCountdowns;
-    showBadgesEl.checked = settings.showNewEpisodeBadges;
-    showEpisodeNumberEl.checked = settings.showEpisodeNumber !== false;
-    showLastWatchedEl.checked = settings.showLastWatched !== false;
-    showProgressEl.checked = settings.showProgress !== false;
 
     if (syncKey) {
         showActiveState(syncKey);
@@ -215,48 +190,22 @@ widgetToggle.addEventListener("click", async () => {
     updateWidgetPill(newValue);
 });
 
-// ---------- Customize toggle ----------
+// ---------- Open settings ----------
 
-customizeToggle.addEventListener("click", () => {
-    const isOpen = !customizePanel.classList.contains("collapsed");
-    customizePanel.classList.toggle("collapsed", isOpen);
-    customizeToggle.classList.toggle("open", !isOpen);
+openSettingsBtn.addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!isOpen) {
-        syncForm.classList.add("collapsed");
-        clearSyncError();
+    if (tab?.id && tab.url?.includes("animepahe.pw")) {
+        try {
+            await chrome.tabs.sendMessage(tab.id, { type: "openSettingsPanel" });
+        } catch {}
+        window.close();
+        return;
     }
-});
 
-// ---------- Alignment ----------
-
-document.querySelectorAll(".align-btn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-        await saveSettings({ cardAlignment: btn.dataset.align });
-        updateAlignmentBtns(btn.dataset.align);
-    });
-});
-
-// ---------- Customize checkboxes ----------
-
-showCountdownsEl.addEventListener("change", async () => {
-    await saveSettings({ showCountdowns: showCountdownsEl.checked });
-});
-
-showBadgesEl.addEventListener("change", async () => {
-    await saveSettings({ showNewEpisodeBadges: showBadgesEl.checked });
-});
-
-showEpisodeNumberEl.addEventListener("change", async () => {
-    await saveSettings({ showEpisodeNumber: showEpisodeNumberEl.checked });
-});
-
-showLastWatchedEl.addEventListener("change", async () => {
-    await saveSettings({ showLastWatched: showLastWatchedEl.checked });
-});
-
-showProgressEl.addEventListener("change", async () => {
-    await saveSettings({ showProgress: showProgressEl.checked });
+    await chrome.storage.local.set({ [PANEL_OPEN_FLAG]: true });
+    await chrome.tabs.create({ url: "https://animepahe.pw/" });
+    window.close();
 });
 
 // ---------- Sync ----------
@@ -284,8 +233,6 @@ openSyncFormBtn.addEventListener("click", () => {
 
     if (!syncForm.classList.contains("collapsed")) {
         syncKeyInput.focus();
-        customizePanel.classList.add("collapsed");
-        customizeToggle.classList.remove("open");
     }
 });
 

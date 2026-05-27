@@ -139,10 +139,36 @@ h2 {
 
 /* ---------- Section borders ---------- */
 
-.customize-section,
 .sync-section {
     padding: 14px 0 6px;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Open settings button ---------- */
+
+.open-settings-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: rgba(79, 140, 255, 0.1);
+    border: 1px solid rgba(79, 140, 255, 0.22);
+    color: #9cccff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.open-settings-btn:hover {
+    background: rgba(79, 140, 255, 0.18);
+}
+
+.open-settings-arrow {
+    opacity: 0.7;
+    font-size: 13px;
 }
 
 /* ---------- Customize section ---------- */

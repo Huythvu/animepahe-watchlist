@@ -1,0 +1,143 @@
+:host, * { box-sizing: border-box; }
+
+.apw-panel {
+    height: 100vh;
+    width: 100%;
+    background: #111;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.apw-panel-header {
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.apw-panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.apw-panel-subtitle {
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.apw-panel-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 0.15s;
+}
+
+.apw-panel-close:hover { color: #fff; }
+
+.apw-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px;
+}
+
+.apw-panel-section {
+    padding: 6px 0 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.apw-panel-section:last-of-type { border-bottom: none; }
+
+.apw-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.55);
+    margin: 10px 0 12px;
+}
+
+.apw-alignment-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.apw-align-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.apw-align-btns {
+    display: flex;
+    gap: 4px;
+}
+
+.apw-align-btn {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.apw-align-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.apw-align-btn.apw-align-btn-active {
+    background: rgba(79, 140, 255, 0.18);
+    border-color: rgba(79, 140, 255, 0.45);
+    color: #9cccff;
+}
+
+.apw-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    cursor: pointer;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.apw-toggle input {
+    width: 14px;
+    height: 14px;
+    accent-color: #4f8cff;
+    cursor: pointer;
+}
+
+.apw-panel-footer {
+    padding: 12px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.apw-panel-footer a {
+    color: rgba(255, 255, 255, 0.55);
+    text-decoration: none;
+}
+
+.apw-panel-footer a:hover { color: #9cccff; }

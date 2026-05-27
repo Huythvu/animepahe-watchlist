@@ -440,13 +440,33 @@ function injectStyles() {
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 0.6rem;
             margin-bottom: 0.75rem;
+            position: relative;
         }
 
         .apw-header h2 {
             margin: 0;
             font-size: 1.7rem;
             text-align: center;
+        }
+
+        .apw-settings-gear-header {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.45);
+            cursor: pointer;
+            padding: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .apw-settings-gear-header:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.06);
         }
 
         .apw-controls {
@@ -1490,6 +1510,7 @@ async function renderWatchlist() {
         section.innerHTML = `
             <div class="apw-header">
                 <h2>Animepahe Watchlist</h2>
+                <button class="apw-settings-gear apw-settings-gear-header" aria-label="Open settings">${GEAR_SVG}</button>
             </div>
 
             ${controls}
@@ -1498,6 +1519,9 @@ async function renderWatchlist() {
                 ${body}
             </div>
         `;
+
+        const headerGear = section.querySelector(".apw-settings-gear-header");
+        if (headerGear) headerGear.addEventListener("click", togglePanel);
 
         section.addEventListener("click", async e => {
             const removeBtn = e.target.closest(".apw-remove");
@@ -1607,6 +1631,183 @@ async function renderWatchlist() {
             applyCountdowns(section);
         }
     });
+}
+
+// ---------- Settings panel (shadow DOM overlay) ----------
+
+const PANEL_HOST_ID = "apw-panel-host";
+const PANEL_WIDTH = 380;
+const PANEL_OPEN_FLAG = "apw_open_panel_on_load";
+
+const GEAR_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+
+let panelHost = null;
+let panelOpen = false;
+
+function hostCss(open) {
+    return [
+        "position:fixed",
+        "top:0",
+        "right:0",
+        "height:100vh",
+        `width:${PANEL_WIDTH}px`,
+        "max-width:92vw",
+        "margin:0",
+        "padding:0",
+        "border:none",
+        "overflow:hidden",
+        "background:#111",
+        "z-index:2147483647",
+        "box-shadow:-6px 0 28px rgba(0,0,0,0.5)",
+        "transition:transform .22s ease",
+        `transform:${open ? "translateX(0)" : "translateX(100%)"}`
+    ].map(d => `${d} !important`).join(";");
+}
+
+async function buildPanel() {
+    if (panelHost) return;
+
+    panelHost = document.createElement("div");
+    panelHost.id = PANEL_HOST_ID;
+    panelHost.style.cssText = hostCss(false);
+
+    const root = panelHost.attachShadow({ mode: "open" });
+    (document.documentElement || document.body).appendChild(panelHost);
+
+    let css = "";
+    try {
+        css = await fetch(chrome.runtime.getURL("panel.css")).then(r => r.text());
+    } catch {}
+
+    const style = document.createElement("style");
+    style.textContent = css;
+    root.appendChild(style);
+
+    const version = chrome.runtime.getManifest().version;
+    const settings = await getSettings();
+    const alignment = settings.cardAlignment || "center";
+
+    const wrap = document.createElement("div");
+    wrap.className = "apw-panel";
+    wrap.innerHTML = `
+        <header class="apw-panel-header">
+            <div>
+                <h2 class="apw-panel-title">Settings</h2>
+                <p class="apw-panel-subtitle">Animepahe Watchlist</p>
+            </div>
+            <button class="apw-panel-close" aria-label="Close">×</button>
+        </header>
+        <div class="apw-panel-body">
+            <section class="apw-panel-section">
+                <h3 class="apw-section-title">Widget</h3>
+                <div class="apw-alignment-row">
+                    <span class="apw-align-label">Alignment</span>
+                    <div class="apw-align-btns">
+                        <button class="apw-align-btn" data-align="left">Left</button>
+                        <button class="apw-align-btn" data-align="center">Center</button>
+                        <button class="apw-align-btn" data-align="right">Right</button>
+                    </div>
+                </div>
+                <label class="apw-toggle"><input type="checkbox" data-setting="showCountdowns"><span>Show airing countdowns</span></label>
+                <label class="apw-toggle"><input type="checkbox" data-setting="showNewEpisodeBadges"><span>Show new episode badges</span></label>
+                <label class="apw-toggle"><input type="checkbox" data-setting="showEpisodeNumber"><span>Show episode number</span></label>
+                <label class="apw-toggle"><input type="checkbox" data-setting="showProgress"><span>Show progress text</span></label>
+                <label class="apw-toggle"><input type="checkbox" data-setting="showLastWatched"><span>Show last watched time</span></label>
+            </section>
+        </div>
+        <footer class="apw-panel-footer">v${version}</footer>
+    `;
+    root.appendChild(wrap);
+
+    const setActiveAlign = align => {
+        wrap.querySelectorAll(".apw-align-btn").forEach(btn => {
+            btn.classList.toggle("apw-align-btn-active", btn.dataset.align === align);
+        });
+    };
+    setActiveAlign(alignment);
+
+    wrap.querySelectorAll(".apw-align-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            await saveSettings({ cardAlignment: btn.dataset.align });
+            setActiveAlign(btn.dataset.align);
+        });
+    });
+
+    wrap.querySelectorAll(".apw-toggle input").forEach(input => {
+        const key = input.dataset.setting;
+        input.checked = settings[key] !== false;
+        input.addEventListener("change", async () => {
+            await saveSettings({ [key]: input.checked });
+        });
+    });
+
+    wrap.querySelector(".apw-panel-close").addEventListener("click", closePanel);
+
+    void panelHost.offsetWidth;
+}
+
+async function openPanel() {
+    await buildPanel();
+    panelHost.style.cssText = hostCss(true);
+    panelOpen = true;
+}
+
+function closePanel() {
+    if (!panelHost) return;
+    panelHost.style.cssText = hostCss(false);
+    panelOpen = false;
+}
+
+function togglePanel() {
+    if (panelOpen) closePanel();
+    else openPanel();
+}
+
+document.addEventListener("pointerdown", event => {
+    if (!panelOpen || !panelHost) return;
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    if (path.includes(panelHost)) return;
+    if (event.target.closest?.(".apw-settings-gear")) return;
+    closePanel();
+}, true);
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && panelOpen) closePanel();
+});
+
+function injectPlayPageGear() {
+    if (document.querySelector(".apw-settings-gear-float")) return;
+    const btn = document.createElement("button");
+    btn.className = "apw-settings-gear apw-settings-gear-float";
+    btn.setAttribute("aria-label", "Open watchlist settings");
+    btn.innerHTML = GEAR_SVG;
+    btn.style.cssText = [
+        "position:fixed",
+        "bottom:20px",
+        "right:20px",
+        "width:38px",
+        "height:38px",
+        "border-radius:50%",
+        "background:rgba(20,20,20,0.85)",
+        "border:1px solid rgba(255,255,255,0.12)",
+        "color:rgba(255,255,255,0.7)",
+        "cursor:pointer",
+        "display:flex",
+        "align-items:center",
+        "justify-content:center",
+        "z-index:2147483646",
+        "transition:background 0.15s, color 0.15s"
+    ].map(d => `${d} !important`).join(";");
+    btn.addEventListener("click", togglePanel);
+    btn.addEventListener("mouseenter", () => {
+        btn.style.setProperty("background", "rgba(40,40,40,0.95)", "important");
+        btn.style.setProperty("color", "#fff", "important");
+    });
+    btn.addEventListener("mouseleave", () => {
+        btn.style.setProperty("background", "rgba(20,20,20,0.85)", "important");
+        btn.style.setProperty("color", "rgba(255,255,255,0.7)", "important");
+    });
+    document.body.appendChild(btn);
 }
 
 function refreshWatchlist() {
@@ -1785,6 +1986,24 @@ chrome.storage.onChanged.addListener((changes, area) => {
     applySettingsClasses();
 });
 
+// ---------- Panel open requests ----------
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "openSettingsPanel") {
+        openPanel();
+        sendResponse({ ok: true });
+    }
+});
+
+async function checkAutoOpenFlag() {
+    try {
+        const data = await chrome.storage.local.get([PANEL_OPEN_FLAG]);
+        if (data[PANEL_OPEN_FLAG]) {
+            await chrome.storage.local.remove(PANEL_OPEN_FLAG);
+            openPanel();
+        }
+    } catch {}
+}
+
 // ---------- Run ----------
 if (isPlayPage) {
     getSettings().then(settings => {
@@ -1792,11 +2011,14 @@ if (isPlayPage) {
             trySaveWithRetry();
         }
     });
+    injectPlayPageGear();
+    checkAutoOpenFlag();
 }
 
 if (isHomePage) {
     injectStyles();
     renderWatchlist();
+    checkAutoOpenFlag();
 
     chrome.runtime.sendMessage({ type: "autoSync" }, response => {
         if (chrome.runtime.lastError) return; // extension reloaded / no background

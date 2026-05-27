@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.0 — Settings panel
+
+- Widget customization settings moved out of the popup into a dedicated side panel that slides in over AnimePahe
+- New gear icon on the watchlist widget header opens the panel
+- Floating gear button on play pages opens the panel while watching
+- "Open settings" button in the popup opens the panel on the active AnimePahe tab, or opens AnimePahe first when used elsewhere
+- Popup is now focused on stats, sync, and the widget enable toggle
+- Panel uses Shadow DOM so its styling is fully isolated from AnimePahe
+
 ## v1.3.0 — Duplicate fix
 
 - Fixes a follow-up issue from v1.2.0 where clicking a stale card would correctly resolve the fresh URL, but the play page then saved a new entry alongside the old one. The widget now recognizes the same anime across session rotations and updates the existing entry in place.
