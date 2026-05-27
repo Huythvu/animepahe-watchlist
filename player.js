@@ -15,9 +15,34 @@ function postToParent(payload) {
     } catch {}
 }
 
+function patchFullscreen(video) {
+    const wrapper = video.parentElement;
+    if (!wrapper) return;
+
+    if (typeof video.requestFullscreen === "function") {
+        video.requestFullscreen = function(opts) {
+            return wrapper.requestFullscreen
+                ? wrapper.requestFullscreen(opts)
+                : HTMLElement.prototype.requestFullscreen.call(wrapper, opts);
+        };
+    }
+    if (typeof video.webkitRequestFullscreen === "function") {
+        video.webkitRequestFullscreen = function() {
+            return wrapper.webkitRequestFullscreen?.();
+        };
+    }
+    if (typeof video.webkitEnterFullscreen === "function") {
+        video.webkitEnterFullscreen = function() {
+            return wrapper.webkitRequestFullscreen?.() || wrapper.requestFullscreen?.();
+        };
+    }
+}
+
 function attachToVideo(video) {
     if (video.dataset.apwBound === "1") return;
     video.dataset.apwBound = "1";
+
+    patchFullscreen(video);
 
     const postEnded = () => {
         if (video.dataset.apwEndedSent === "1") return;
