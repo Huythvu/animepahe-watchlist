@@ -469,6 +469,24 @@ function injectStyles() {
             background: rgba(255, 255, 255, 0.06);
         }
 
+        .apw-settings-gear-tab {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            padding: 4px 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .apw-settings-gear-tab:hover {
+            color: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
         .apw-controls {
             width: 100%;
             max-width: ${viewportWidth}px;
@@ -904,6 +922,8 @@ async function buildControls(list) {
                 <button class="apw-tab ${settings.currentFilter === "plan" ? "apw-active" : ""}" data-filter="plan">
                     Plan to Watch <span class="apw-tab-count">${planCount}</span>
                 </button>
+
+                <button class="apw-settings-gear apw-settings-gear-tab" aria-label="Open settings">${GEAR_SVG}</button>
             </div>
 
             <div class="apw-meta"></div>
@@ -1523,6 +1543,9 @@ async function renderWatchlist() {
         const headerGear = section.querySelector(".apw-settings-gear-header");
         if (headerGear) headerGear.addEventListener("click", togglePanel);
 
+        const tabGear = section.querySelector(".apw-settings-gear-tab");
+        if (tabGear) tabGear.addEventListener("click", togglePanel);
+
         section.addEventListener("click", async e => {
             const removeBtn = e.target.closest(".apw-remove");
 
@@ -1693,29 +1716,34 @@ async function buildPanel() {
         <header class="apw-panel-header">
             <div>
                 <h2 class="apw-panel-title">Settings</h2>
-                <p class="apw-panel-subtitle">Animepahe Watchlist</p>
+                <p class="apw-panel-subtitle">Animepahe Watchlist v${version}</p>
             </div>
             <button class="apw-panel-close" aria-label="Close">×</button>
         </header>
         <div class="apw-panel-body">
             <section class="apw-panel-section">
-                <h3 class="apw-section-title">Widget</h3>
+                <div class="apw-section-header">
+                    <h3 class="apw-section-title">Widget</h3>
+                    <p class="apw-section-desc">Appearance and content shown on the AnimePahe homepage.</p>
+                </div>
                 <div class="apw-alignment-row">
-                    <span class="apw-align-label">Alignment</span>
+                    <span class="apw-align-label">Card alignment</span>
                     <div class="apw-align-btns">
                         <button class="apw-align-btn" data-align="left">Left</button>
                         <button class="apw-align-btn" data-align="center">Center</button>
                         <button class="apw-align-btn" data-align="right">Right</button>
                     </div>
                 </div>
-                <label class="apw-toggle"><input type="checkbox" data-setting="showCountdowns"><span>Show airing countdowns</span></label>
-                <label class="apw-toggle"><input type="checkbox" data-setting="showNewEpisodeBadges"><span>Show new episode badges</span></label>
-                <label class="apw-toggle"><input type="checkbox" data-setting="showEpisodeNumber"><span>Show episode number</span></label>
-                <label class="apw-toggle"><input type="checkbox" data-setting="showProgress"><span>Show progress text</span></label>
-                <label class="apw-toggle"><input type="checkbox" data-setting="showLastWatched"><span>Show last watched time</span></label>
+                <label class="apw-toggle"><span>Show airing countdowns</span><input type="checkbox" data-setting="showCountdowns"></label>
+                <label class="apw-toggle"><span>Show new episode badges</span><input type="checkbox" data-setting="showNewEpisodeBadges"></label>
+                <label class="apw-toggle"><span>Show episode number</span><input type="checkbox" data-setting="showEpisodeNumber"></label>
+                <label class="apw-toggle"><span>Show progress text</span><input type="checkbox" data-setting="showProgress"></label>
+                <label class="apw-toggle"><span>Show last watched time</span><input type="checkbox" data-setting="showLastWatched"></label>
             </section>
         </div>
-        <footer class="apw-panel-footer">v${version}</footer>
+        <footer class="apw-panel-footer">
+            <span>v${version}</span>
+        </footer>
     `;
     root.appendChild(wrap);
 
@@ -1774,41 +1802,6 @@ document.addEventListener("pointerdown", event => {
 document.addEventListener("keydown", event => {
     if (event.key === "Escape" && panelOpen) closePanel();
 });
-
-function injectPlayPageGear() {
-    if (document.querySelector(".apw-settings-gear-float")) return;
-    const btn = document.createElement("button");
-    btn.className = "apw-settings-gear apw-settings-gear-float";
-    btn.setAttribute("aria-label", "Open watchlist settings");
-    btn.innerHTML = GEAR_SVG;
-    btn.style.cssText = [
-        "position:fixed",
-        "bottom:20px",
-        "right:20px",
-        "width:38px",
-        "height:38px",
-        "border-radius:50%",
-        "background:rgba(20,20,20,0.85)",
-        "border:1px solid rgba(255,255,255,0.12)",
-        "color:rgba(255,255,255,0.7)",
-        "cursor:pointer",
-        "display:flex",
-        "align-items:center",
-        "justify-content:center",
-        "z-index:2147483646",
-        "transition:background 0.15s, color 0.15s"
-    ].map(d => `${d} !important`).join(";");
-    btn.addEventListener("click", togglePanel);
-    btn.addEventListener("mouseenter", () => {
-        btn.style.setProperty("background", "rgba(40,40,40,0.95)", "important");
-        btn.style.setProperty("color", "#fff", "important");
-    });
-    btn.addEventListener("mouseleave", () => {
-        btn.style.setProperty("background", "rgba(20,20,20,0.85)", "important");
-        btn.style.setProperty("color", "rgba(255,255,255,0.7)", "important");
-    });
-    document.body.appendChild(btn);
-}
 
 function refreshWatchlist() {
     const section = document.querySelector("#animepahe-watchlist");
@@ -2011,7 +2004,6 @@ if (isPlayPage) {
             trySaveWithRetry();
         }
     });
-    injectPlayPageGear();
     checkAutoOpenFlag();
 }
 
