@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Auto-play next — play page mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1a1a1a;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+    align-items: center;
+  }
+
+  .label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9cccff;
+    margin-bottom: 8px;
+  }
+
+  .note {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    max-width: 720px;
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+
+  /* Fake play-page layout */
+  .play-page {
+    width: 820px;
+    background: #111;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .play-title {
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 14px;
+  }
+  .play-title strong { font-weight: 700; }
+  .play-title span { color: rgba(255,255,255,0.5); }
+
+  .video-frame {
+    aspect-ratio: 16/9;
+    background:
+      linear-gradient(135deg, #1a1a2e, #16213e);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 13px;
+  }
+
+  /* Controls row under the video */
+  .player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #0e0e0e;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .controls-left, .controls-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Native-looking prev/next buttons (already on AnimePahe) */
+  .ap-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .ap-btn:hover { background: rgba(255,255,255,0.13); }
+
+  /* OUR autoplay pill */
+  .apw-autoplay-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid rgba(79,140,255,0.4);
+    background: rgba(79,140,255,0.14);
+    color: #9cccff;
+    transition: background 0.15s;
+  }
+  .apw-autoplay-pill:hover { background: rgba(79,140,255,0.22); }
+
+  /* OFF state */
+  .apw-autoplay-pill.off {
+    border-color: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.5);
+  }
+
+  .apw-switch {
+    width: 26px;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(79,140,255,0.45);
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .apw-switch::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 13px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #9cccff;
+    transition: left 0.15s;
+  }
+  .apw-autoplay-pill.off .apw-switch { background: rgba(255,255,255,0.15); }
+  .apw-autoplay-pill.off .apw-switch::after {
+    left: 1px;
+    background: rgba(255,255,255,0.55);
+  }
+
+  /* Setting panel snippet */
+  .panel-snippet {
+    width: 380px;
+    background: #111;
+    border-radius: 10px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 13px;
+  }
+  .panel-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 10px;
+  }
+  .panel-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    gap: 10px;
+  }
+  .panel-toggle input { accent-color: #4f8cff; }
+
+  .row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .arrow {
+    font-size: 22px;
+    color: rgba(255,255,255,0.4);
+    align-self: center;
+    padding-top: 60px;
+  }
+
+  h2 {
+    font-size: 14px;
+    color: #9cccff;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .mini-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 8px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+  <div>
+    <div class="label">1. Settings panel — Player section</div>
+    <div class="panel-snippet">
+      <div class="panel-section-title">Player</div>
+      <label class="panel-toggle">
+        <span>Show auto-play next on play page</span>
+        <input type="checkbox" checked>
+      </label>
+    </div>
+    <p class="note">Single toggle. When ON, the pill below appears on every play page. When OFF, no pill, no auto-play.</p>
+  </div>
+
+  <div>
+    <div class="label">2. Play page — pill (ON state)</div>
+    <div class="play-page">
+      <div class="play-title">
+        <strong>You and I Are Polar Opposites</strong> <span>· Episode 3</span>
+      </div>
+      <div class="video-frame">▶ Video player</div>
+      <div class="player-controls">
+        <div class="controls-left">
+          <button class="ap-btn">← Prev</button>
+          <button class="ap-btn">Next →</button>
+        </div>
+        <div class="controls-right">
+          <button class="apw-autoplay-pill">
+            <span class="apw-switch"></span>
+            Auto-play next
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Pill sits to the right of AnimePahe's existing prev/next buttons. Click to toggle on/off. When the video ends and the pill is ON, it auto-clicks the next-episode button.</p>
+  </div>
+
+  <div>
+    <div class="label">3. Play page — pill (OFF state)</div>
+    <div class="play-page">
+      <div class="play-title">
+        <strong>You and I Are Polar Opposites</strong> <span>· Episode 3</span>
+      </div>
+      <div class="video-frame">▶ Video player</div>
+      <div class="player-controls">
+        <div class="controls-left">
+          <button class="ap-btn">← Prev</button>
+          <button class="ap-btn">Next →</button>
+        </div>
+        <div class="controls-right">
+          <button class="apw-autoplay-pill off">
+            <span class="apw-switch"></span>
+            Auto-play next
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Greyed-out state — the pill is still visible (because the panel toggle is ON), but the user disabled auto-play for this session. State persists across page loads.</p>
+  </div>
+
+</body>
+</html>
