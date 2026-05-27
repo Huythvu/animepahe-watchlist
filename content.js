@@ -24,7 +24,9 @@ const DEFAULT_SETTINGS = {
     cardAlignment: "center",
     showEpisodeNumber: true,
     showLastWatched: true,
-    showProgress: true
+    showProgress: true,
+    showSettingsButton: true,
+    panelSide: "right"
 };
 
 let countdownTargets = new Map();
@@ -931,7 +933,7 @@ async function buildControls(list) {
                     Plan to Watch <span class="apw-tab-count">${planCount}</span>
                 </button>
 
-                <button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings"><span>Settings</span>${GEAR_SVG}</button>
+                ${settings.showSettingsButton !== false ? `<button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings"><span>Settings</span>${GEAR_SVG}</button>` : ""}
             </div>
 
             <div class="apw-meta"></div>
@@ -1670,12 +1672,15 @@ const GEAR_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" st
 
 let panelHost = null;
 let panelOpen = false;
+let panelSide = "right";
 
-function hostCss(open) {
+function hostCss(open, side = panelSide) {
+    const isLeft = side === "left";
+    const offscreen = isLeft ? "translateX(-100%)" : "translateX(100%)";
     return [
         "position:fixed",
         "top:0",
-        "right:0",
+        isLeft ? "left:0" : "right:0",
         "height:100vh",
         `width:${PANEL_WIDTH}px`,
         "max-width:92vw",
@@ -1685,14 +1690,22 @@ function hostCss(open) {
         "overflow:hidden",
         "background:#111",
         "z-index:2147483647",
-        "box-shadow:-6px 0 28px rgba(0,0,0,0.5)",
+        `box-shadow:${isLeft ? "6px" : "-6px"} 0 28px rgba(0,0,0,0.5)`,
         "transition:transform .22s ease",
-        `transform:${open ? "translateX(0)" : "translateX(100%)"}`
+        `transform:${open ? "translateX(0)" : offscreen}`
     ].map(d => `${d} !important`).join(";");
+}
+
+function applyPanelSide(side) {
+    panelSide = side === "left" ? "left" : "right";
+    if (panelHost) panelHost.style.cssText = hostCss(panelOpen);
 }
 
 async function buildPanel() {
     if (panelHost) return;
+
+    const initialSettings = await getSettings();
+    panelSide = initialSettings.panelSide === "left" ? "left" : "right";
 
     panelHost = document.createElement("div");
     panelHost.id = PANEL_HOST_ID;
@@ -1738,6 +1751,14 @@ async function buildPanel() {
                         <button class="apw-align-btn" data-align="right">Right</button>
                     </div>
                 </div>
+                <div class="apw-alignment-row">
+                    <span class="apw-align-label">Panel side</span>
+                    <div class="apw-align-btns">
+                        <button class="apw-align-btn" data-side="left">Left</button>
+                        <button class="apw-align-btn" data-side="right">Right</button>
+                    </div>
+                </div>
+                <label class="apw-toggle"><span>Show settings button on widget</span><input type="checkbox" data-setting="showSettingsButton"></label>
                 <label class="apw-toggle"><span>Show airing countdowns</span><input type="checkbox" data-setting="showCountdowns"></label>
                 <label class="apw-toggle"><span>Show new episode badges</span><input type="checkbox" data-setting="showNewEpisodeBadges"></label>
                 <label class="apw-toggle"><span>Show episode number</span><input type="checkbox" data-setting="showEpisodeNumber"></label>
@@ -1762,16 +1783,31 @@ async function buildPanel() {
     root.appendChild(wrap);
 
     const setActiveAlign = align => {
-        wrap.querySelectorAll(".apw-align-btn").forEach(btn => {
+        wrap.querySelectorAll(".apw-align-btn[data-align]").forEach(btn => {
             btn.classList.toggle("apw-align-btn-active", btn.dataset.align === align);
         });
     };
     setActiveAlign(alignment);
 
-    wrap.querySelectorAll(".apw-align-btn").forEach(btn => {
+    const setActiveSide = side => {
+        wrap.querySelectorAll(".apw-align-btn[data-side]").forEach(btn => {
+            btn.classList.toggle("apw-align-btn-active", btn.dataset.side === side);
+        });
+    };
+    setActiveSide(panelSide);
+
+    wrap.querySelectorAll(".apw-align-btn[data-align]").forEach(btn => {
         btn.addEventListener("click", async () => {
             await saveSettings({ cardAlignment: btn.dataset.align });
             setActiveAlign(btn.dataset.align);
+        });
+    });
+
+    wrap.querySelectorAll(".apw-align-btn[data-side]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            await saveSettings({ panelSide: btn.dataset.side });
+            setActiveSide(btn.dataset.side);
+            applyPanelSide(btn.dataset.side);
         });
     });
 
@@ -1780,6 +1816,9 @@ async function buildPanel() {
         input.checked = settings[key] !== false;
         input.addEventListener("change", async () => {
             await saveSettings({ [key]: input.checked });
+            if (key === "showSettingsButton" && isHomePage) {
+                refreshWatchlist();
+            }
         });
     });
 
