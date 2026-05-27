@@ -4,7 +4,7 @@
 // stays visible in fullscreen.
 
 const COUNTDOWN_OVERLAY_ID = "apw-countdown-overlay";
-const NEAR_END_THRESHOLD_SEC = 0.4;
+const NEAR_END_THRESHOLD_SEC = 10;
 const STYLE_ID = "apw-iframe-styles";
 
 let lastSentEndedAt = 0;
