@@ -7,7 +7,8 @@ const COUNTDOWN_OVERLAY_ID = "apw-countdown-overlay";
 const NEAR_END_THRESHOLD_SEC = 10;
 const STYLE_ID = "apw-iframe-styles";
 
-let countdownTimer = null;
+let countdownState = null; // null | { armed: bool, cancelled: bool }
+let activeVideo = null;
 
 function postToParent(payload) {
     try {
@@ -60,31 +61,47 @@ function patchFullscreen(video) {
     }
 }
 
+function getRemaining(video) {
+    if (!video || !isFinite(video.duration) || video.duration === 0) return null;
+    return Math.max(0, video.duration - video.currentTime);
+}
+
+function handleTimeChange() {
+    const video = activeVideo;
+    const remaining = getRemaining(video);
+    if (remaining === null) return;
+
+    if (remaining < NEAR_END_THRESHOLD_SEC) {
+        if (!countdownState) {
+            countdownState = { armed: false, cancelled: false };
+            postToParent({ type: "videoEnded" });
+        } else if (countdownState.armed && !countdownState.cancelled) {
+            updateCountdown(remaining);
+        }
+    } else if (countdownState) {
+        // User seeked back out of the near-end window: reset entirely.
+        countdownState = null;
+        removeOverlay();
+    }
+}
+
 function attachToVideo(video) {
     if (video.dataset.apwBound === "1") return;
     video.dataset.apwBound = "1";
 
+    activeVideo = video;
     patchFullscreen(video);
 
-    const postEnded = () => {
-        if (video.dataset.apwEndedSent === "1") return;
-        video.dataset.apwEndedSent = "1";
-        postToParent({ type: "videoEnded" });
-    };
-
-    video.addEventListener("ended", postEnded);
-
-    video.addEventListener("timeupdate", () => {
-        if (!isFinite(video.duration) || video.duration === 0) return;
-        if (video.duration - video.currentTime < NEAR_END_THRESHOLD_SEC && !video.paused) {
-            postEnded();
+    video.addEventListener("ended", () => {
+        if (countdownState?.armed && !countdownState.cancelled) {
+            removeOverlay();
+            postToParent({ type: "countdownDone" });
+            countdownState = null;
         }
     });
 
-    video.addEventListener("seeking", () => {
-        if (isFinite(video.duration) && video.duration - video.currentTime >= NEAR_END_THRESHOLD_SEC) {
-            video.dataset.apwEndedSent = "";
-        }
+    ["timeupdate", "seeked", "play", "pause"].forEach(evt => {
+        video.addEventListener(evt, handleTimeChange);
     });
 }
 
@@ -195,10 +212,6 @@ function applyFullscreenPlacement(overlay) {
 }
 
 function removeOverlay() {
-    if (countdownTimer) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-    }
     document.getElementById(COUNTDOWN_OVERLAY_ID)?.remove();
     document.removeEventListener("fullscreenchange", onFullscreenChange);
     document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
@@ -209,22 +222,23 @@ function onFullscreenChange() {
     if (overlay) applyFullscreenPlacement(overlay);
 }
 
-function showCountdownOverlay(seconds) {
+function showCountdownOverlay() {
     injectStyles();
-    removeOverlay();
+    if (document.getElementById(COUNTDOWN_OVERLAY_ID)) return;
 
     const overlay = document.createElement("div");
     overlay.id = COUNTDOWN_OVERLAY_ID;
     overlay.innerHTML = `
-        <span class="apw-cd-text">Next episode in <span class="apw-cd-num">${seconds}</span>s</span>
+        <span class="apw-cd-text">Next episode in <span class="apw-cd-num">${NEAR_END_THRESHOLD_SEC}</span>s</span>
         <button type="button" class="apw-cd-cancel" aria-label="Cancel">×</button>
         <div class="apw-cd-bar"><div class="apw-cd-bar-fill"></div></div>
     `;
 
-    const numEl = overlay.querySelector(".apw-cd-num");
     const fillEl = overlay.querySelector(".apw-cd-bar-fill");
+    fillEl.style.transition = "width 0.3s linear";
 
     overlay.querySelector(".apw-cd-cancel").addEventListener("click", () => {
+        if (countdownState) countdownState.cancelled = true;
         removeOverlay();
         postToParent({ type: "countdownCancelled" });
     });
@@ -235,19 +249,20 @@ function showCountdownOverlay(seconds) {
     document.addEventListener("fullscreenchange", onFullscreenChange);
     document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
-    fillEl.style.transition = `width ${seconds}s linear`;
-    requestAnimationFrame(() => { fillEl.style.width = "0%"; });
+    const remaining = getRemaining(activeVideo);
+    if (remaining !== null) updateCountdown(remaining);
+}
 
-    let remaining = seconds;
-    countdownTimer = setInterval(() => {
-        remaining -= 1;
-        if (remaining <= 0) {
-            removeOverlay();
-            postToParent({ type: "countdownDone" });
-            return;
-        }
-        numEl.textContent = String(remaining);
-    }, 1000);
+function updateCountdown(remaining) {
+    const overlay = document.getElementById(COUNTDOWN_OVERLAY_ID);
+    if (!overlay) return;
+    const numEl = overlay.querySelector(".apw-cd-num");
+    const fillEl = overlay.querySelector(".apw-cd-bar-fill");
+    if (numEl) numEl.textContent = String(Math.max(0, Math.ceil(remaining)));
+    if (fillEl) {
+        const pct = Math.max(0, Math.min(100, (remaining / NEAR_END_THRESHOLD_SEC) * 100));
+        fillEl.style.width = pct + "%";
+    }
 }
 
 function tryPlay(tries = 0) {
@@ -262,8 +277,10 @@ function tryPlay(tries = 0) {
 window.addEventListener("message", event => {
     if (event.data?.source !== "apw-host") return;
     if (event.data?.type === "startCountdown") {
-        showCountdownOverlay(event.data.seconds ?? 5);
+        if (countdownState) countdownState.armed = true;
+        showCountdownOverlay();
     } else if (event.data?.type === "cancelCountdown") {
+        if (countdownState) countdownState.cancelled = true;
         removeOverlay();
     } else if (event.data?.type === "autoPlay") {
         tryPlay();
