@@ -931,7 +931,7 @@ async function buildControls(list) {
                     Plan to Watch <span class="apw-tab-count">${planCount}</span>
                 </button>
 
-                <button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings">${GEAR_SVG}<span>Settings</span></button>
+                <button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings"><span>Settings</span>${GEAR_SVG}</button>
             </div>
 
             <div class="apw-meta"></div>
