@@ -50,7 +50,7 @@ function injectStyles() {
         #${COUNTDOWN_OVERLAY_ID} {
             position: fixed;
             right: 20px;
-            bottom: 20px;
+            bottom: 75px;
             z-index: 2147483647;
             display: inline-flex;
             align-items: center;
@@ -68,6 +68,10 @@ function injectStyles() {
             overflow: hidden;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
             animation: apw-cd-in 0.18s ease;
+        }
+        #${COUNTDOWN_OVERLAY_ID}.apw-cd-fullscreen {
+            right: 28px;
+            bottom: 95px;
         }
         @keyframes apw-cd-in {
             from { opacity: 0; transform: translateY(6px); }
@@ -118,12 +122,33 @@ function injectStyles() {
     document.head.appendChild(style);
 }
 
+function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function applyFullscreenPlacement(overlay) {
+    const fsEl = getFullscreenElement();
+    overlay.classList.toggle("apw-cd-fullscreen", !!fsEl);
+
+    const targetParent = fsEl || document.body;
+    if (overlay.parentNode !== targetParent) {
+        targetParent.appendChild(overlay);
+    }
+}
+
 function removeOverlay() {
     if (countdownTimer) {
         clearInterval(countdownTimer);
         countdownTimer = null;
     }
     document.getElementById(COUNTDOWN_OVERLAY_ID)?.remove();
+    document.removeEventListener("fullscreenchange", onFullscreenChange);
+    document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
+}
+
+function onFullscreenChange() {
+    const overlay = document.getElementById(COUNTDOWN_OVERLAY_ID);
+    if (overlay) applyFullscreenPlacement(overlay);
 }
 
 function showCountdownOverlay(seconds) {
@@ -147,6 +172,10 @@ function showCountdownOverlay(seconds) {
     });
 
     document.body.appendChild(overlay);
+    applyFullscreenPlacement(overlay);
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
     fillEl.style.transition = `width ${seconds}s linear`;
     requestAnimationFrame(() => { fillEl.style.width = "0%"; });
