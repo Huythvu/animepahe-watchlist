@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Popup B-Variants</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1a1a2e;
+    font-family: system-ui, sans-serif;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+    align-items: center;
+  }
+
+  .page-title {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    align-self: flex-start;
+    padding-left: 4px;
+  }
+
+  .options-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .option-wrap {
+    display: flex; flex-direction: column;
+    gap: 10px; align-items: center;
+  }
+  .option-label {
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: #9cccff;
+  }
+  .option-note {
+    font-size: 11px; color: rgba(255,255,255,0.4);
+    text-align: center; max-width: 310px; line-height: 1.45;
+  }
+
+  /* ── Popup shell ── */
+  .popup {
+    width: 320px;
+    background: #111;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .popup-inner { padding: 14px 14px 8px; }
+
+  /* Header (Option B base: title + subtitle on top, pills row below) */
+  .header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .header-text h1 {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* Pill base */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.85);
+    transition: background 0.15s;
+  }
+  .pill:hover { background: rgba(255,255,255,0.12); }
+  .pill-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4caf50;
+    flex-shrink: 0;
+  }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+  }
+  .stat-card .label {
+    display: block; margin-bottom: 4px;
+    font-size: 11px; color: rgba(255,255,255,0.55);
+  }
+  .stat-card strong { font-size: 22px; }
+
+  /* Sync stub */
+  .sync-section {
+    padding: 14px 0 6px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .sync-section h2 {
+    font-size: 14px; font-weight: 600; margin: 0 0 8px;
+  }
+  .sync-hint {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .btn-stack { display: grid; gap: 7px; }
+  .btn {
+    width: 100%; padding: 9px 10px;
+    border: none; border-radius: 8px;
+    cursor: pointer; font-weight: 600; font-size: 13px;
+  }
+  .btn-primary { background: #4f8cff; color: #fff; }
+  .btn-secondary {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.13);
+  }
+
+  /* ════════════════════════════════
+     B1 — three pills in a row, AnimePahe + Settings + Enabled
+     ════════════════════════════════ */
+  .b1 .pills-row {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+
+  /* ════════════════════════════════
+     B2 — utility pills (AnimePahe + Settings) left,
+          Enabled status pill right, justify-between
+     ════════════════════════════════ */
+  .b2 .pills-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .b2 .pills-left { display: flex; gap: 6px; }
+
+  /* ════════════════════════════════
+     B3 — Enabled becomes a discrete left chip with status dot;
+          AnimePahe + Settings pushed right
+     ════════════════════════════════ */
+  .b3 .pills-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .b3 .pill-status {
+    background: rgba(76, 175, 80, 0.10);
+    border-color: rgba(76, 175, 80, 0.28);
+    color: #6fcf7c;
+  }
+  .b3 .pill-status .pill-dot {
+    background: #4caf50;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .b3 .pills-right { display: flex; gap: 6px; }
+
+  /* ════════════════════════════════
+     B4 — Settings as a gear icon button at the end of the pills row
+     ════════════════════════════════ */
+  .b4 .pills-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .b4 .gear-pill {
+    width: 26px; height: 26px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.65);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    margin-left: auto;
+  }
+  .b4 .gear-pill:hover {
+    background: rgba(255,255,255,0.13);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Popup — Option B variants (Settings/Enabled swapped + others)</div>
+
+<div class="options-row">
+
+  <!-- B1 -->
+  <div class="option-wrap">
+    <div class="option-label">B1 — straight swap</div>
+    <div class="popup b1">
+      <div class="popup-inner">
+        <div class="header">
+          <div class="header-text">
+            <h1>Animepahe Watchlist</h1>
+            <p class="subtitle">Manage and sync your watchlist.</p>
+          </div>
+          <div class="pills-row">
+            <a href="#" class="pill">AnimePahe ↗</a>
+            <button class="pill">Settings ↗</button>
+            <button class="pill"><span class="pill-dot"></span> Enabled</button>
+          </div>
+        </div>
+        <section class="stats">
+          <div class="stat-card"><span class="label">Currently Watching</span><strong>4</strong></div>
+          <div class="stat-card"><span class="label">Plan to Watch</span><strong>11</strong></div>
+        </section>
+        <section class="sync-section">
+          <h2>Sync</h2>
+          <p class="sync-hint">5-word phrase to sync across browsers.</p>
+          <div class="btn-stack">
+            <button class="btn btn-primary">Generate sync phrase</button>
+            <button class="btn btn-secondary">Sync with phrase</button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="option-note">Just B with Settings and Enabled swapped — Enabled now sits last as the status indicator (feels natural since it shows current state).</p>
+  </div>
+
+  <!-- B2 -->
+  <div class="option-wrap">
+    <div class="option-label">B2 — split row</div>
+    <div class="popup b2">
+      <div class="popup-inner">
+        <div class="header">
+          <div class="header-text">
+            <h1>Animepahe Watchlist</h1>
+            <p class="subtitle">Manage and sync your watchlist.</p>
+          </div>
+          <div class="pills-row">
+            <div class="pills-left">
+              <a href="#" class="pill">AnimePahe ↗</a>
+              <button class="pill">Settings ↗</button>
+            </div>
+            <button class="pill"><span class="pill-dot"></span> Enabled</button>
+          </div>
+        </div>
+        <section class="stats">
+          <div class="stat-card"><span class="label">Currently Watching</span><strong>4</strong></div>
+          <div class="stat-card"><span class="label">Plan to Watch</span><strong>11</strong></div>
+        </section>
+        <section class="sync-section">
+          <h2>Sync</h2>
+          <p class="sync-hint">5-word phrase to sync across browsers.</p>
+          <div class="btn-stack">
+            <button class="btn btn-primary">Generate sync phrase</button>
+            <button class="btn btn-secondary">Sync with phrase</button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="option-note">Navigation pills (AnimePahe + Settings) grouped left, status pill (Enabled) pushed right. Visually separates "actions" from "state".</p>
+  </div>
+
+</div>
+
+<div class="options-row">
+
+  <!-- B3 -->
+  <div class="option-wrap">
+    <div class="option-label">B3 — status badge style</div>
+    <div class="popup b3">
+      <div class="popup-inner">
+        <div class="header">
+          <div class="header-text">
+            <h1>Animepahe Watchlist</h1>
+            <p class="subtitle">Manage and sync your watchlist.</p>
+          </div>
+          <div class="pills-row">
+            <button class="pill pill-status">
+              <span class="pill-dot"></span> Enabled
+            </button>
+            <div class="pills-right">
+              <a href="#" class="pill">AnimePahe ↗</a>
+              <button class="pill">Settings ↗</button>
+            </div>
+          </div>
+        </div>
+        <section class="stats">
+          <div class="stat-card"><span class="label">Currently Watching</span><strong>4</strong></div>
+          <div class="stat-card"><span class="label">Plan to Watch</span><strong>11</strong></div>
+        </section>
+        <section class="sync-section">
+          <h2>Sync</h2>
+          <p class="sync-hint">5-word phrase to sync across browsers.</p>
+          <div class="btn-stack">
+            <button class="btn btn-primary">Generate sync phrase</button>
+            <button class="btn btn-secondary">Sync with phrase</button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="option-note">Enabled rendered as a green status badge (matches the "Synced" badge style elsewhere). AnimePahe + Settings pushed to the right as nav.</p>
+  </div>
+
+  <!-- B4 -->
+  <div class="option-wrap">
+    <div class="option-label">B4 — gear icon</div>
+    <div class="popup b4">
+      <div class="popup-inner">
+        <div class="header">
+          <div class="header-text">
+            <h1>Animepahe Watchlist</h1>
+            <p class="subtitle">Manage and sync your watchlist.</p>
+          </div>
+          <div class="pills-row">
+            <a href="#" class="pill">AnimePahe ↗</a>
+            <button class="pill"><span class="pill-dot"></span> Enabled</button>
+            <button class="gear-pill" title="Open settings">⚙</button>
+          </div>
+        </div>
+        <section class="stats">
+          <div class="stat-card"><span class="label">Currently Watching</span><strong>4</strong></div>
+          <div class="stat-card"><span class="label">Plan to Watch</span><strong>11</strong></div>
+        </section>
+        <section class="sync-section">
+          <h2>Sync</h2>
+          <p class="sync-hint">5-word phrase to sync across browsers.</p>
+          <div class="btn-stack">
+            <button class="btn btn-primary">Generate sync phrase</button>
+            <button class="btn btn-secondary">Sync with phrase</button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="option-note">Settings becomes a gear icon button at the end of the row — sleeker, less attention-seeking than the text pill.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
