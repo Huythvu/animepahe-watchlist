@@ -2177,7 +2177,9 @@ function injectPlayPageStyles() {
             align-items: center;
             justify-content: flex-end;
             gap: 8px;
-            margin: 6px 0 2px;
+            margin: 6px auto 2px;
+            max-width: 1100px;
+            width: 100%;
         }
         .apw-autoplay-wrap { display: inline-flex; }
         .apw-autoplay-pill {
