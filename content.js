@@ -1530,7 +1530,6 @@ async function renderWatchlist() {
         section.innerHTML = `
             <div class="apw-header">
                 <h2>Animepahe Watchlist</h2>
-                <button class="apw-settings-gear apw-settings-gear-header" aria-label="Open settings">${GEAR_SVG}</button>
             </div>
 
             ${controls}
@@ -1539,9 +1538,6 @@ async function renderWatchlist() {
                 ${body}
             </div>
         `;
-
-        const headerGear = section.querySelector(".apw-settings-gear-header");
-        if (headerGear) headerGear.addEventListener("click", togglePanel);
 
         const tabGear = section.querySelector(".apw-settings-gear-tab");
         if (tabGear) tabGear.addEventListener("click", togglePanel);
@@ -1716,7 +1712,7 @@ async function buildPanel() {
         <header class="apw-panel-header">
             <div>
                 <h2 class="apw-panel-title">Settings</h2>
-                <p class="apw-panel-subtitle">Animepahe Watchlist v${version}</p>
+                <p class="apw-panel-subtitle">Animepahe Watchlist</p>
             </div>
             <button class="apw-panel-close" aria-label="Close">×</button>
         </header>
@@ -1739,6 +1735,16 @@ async function buildPanel() {
                 <label class="apw-toggle"><span>Show episode number</span><input type="checkbox" data-setting="showEpisodeNumber"></label>
                 <label class="apw-toggle"><span>Show progress text</span><input type="checkbox" data-setting="showProgress"></label>
                 <label class="apw-toggle"><span>Show last watched time</span><input type="checkbox" data-setting="showLastWatched"></label>
+            </section>
+            <section class="apw-panel-section apw-section-preview">
+                <div class="apw-section-header">
+                    <h3 class="apw-section-title">Player <span class="apw-section-badge">Coming in v1.5.0</span></h3>
+                    <p class="apw-section-desc">Features for the AnimePahe video player page.</p>
+                </div>
+                <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position</span><input type="checkbox" disabled></label>
+                <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip)</span><input type="checkbox" disabled></label>
+                <label class="apw-toggle apw-toggle-disabled"><span>Auto-play next episode</span><input type="checkbox" disabled></label>
+                <label class="apw-toggle apw-toggle-disabled"><span>Show progress bar on cards</span><input type="checkbox" disabled></label>
             </section>
         </div>
         <footer class="apw-panel-footer">
