@@ -479,7 +479,15 @@ function injectStyles() {
             font-family: inherit;
             cursor: pointer;
             opacity: 0.75;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
             transition: background 0.15s, opacity 0.15s, border-color 0.15s;
+        }
+
+        .apw-settings-tab-btn svg {
+            width: 13px;
+            height: 13px;
         }
 
         .apw-settings-tab-btn:hover {
@@ -923,7 +931,7 @@ async function buildControls(list) {
                     Plan to Watch <span class="apw-tab-count">${planCount}</span>
                 </button>
 
-                <button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings">Settings</button>
+                <button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings">${GEAR_SVG}<span>Settings</span></button>
             </div>
 
             <div class="apw-meta"></div>
