@@ -469,21 +469,20 @@ function injectStyles() {
             background: rgba(255, 255, 255, 0.06);
         }
 
-        .apw-settings-gear-tab {
+        .apw-settings-tab-btn {
             border: 1px solid rgba(255,255,255,0.14);
             background: rgba(255,255,255,0.04);
             color: inherit;
             border-radius: 999px;
-            padding: 5px 10px;
+            padding: 5px 11px;
+            font-size: 0.78em;
+            font-family: inherit;
             cursor: pointer;
             opacity: 0.75;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             transition: background 0.15s, opacity 0.15s, border-color 0.15s;
         }
 
-        .apw-settings-gear-tab:hover {
+        .apw-settings-tab-btn:hover {
             opacity: 1;
             background: rgba(255,255,255,0.08);
         }
@@ -924,7 +923,7 @@ async function buildControls(list) {
                     Plan to Watch <span class="apw-tab-count">${planCount}</span>
                 </button>
 
-                <button class="apw-settings-gear apw-settings-gear-tab" aria-label="Open settings">${GEAR_SVG}</button>
+                <button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings">Settings</button>
             </div>
 
             <div class="apw-meta"></div>
@@ -1540,7 +1539,7 @@ async function renderWatchlist() {
             </div>
         `;
 
-        const tabGear = section.querySelector(".apw-settings-gear-tab");
+        const tabGear = section.querySelector(".apw-settings-gear");
         if (tabGear) tabGear.addEventListener("click", togglePanel);
 
         section.addEventListener("click", async e => {
