@@ -3,6 +3,7 @@ const POSTER_CACHE_KEY = "apw_poster_cache";
 const LATEST_EP_CACHE_KEY = "apw_latest_ep_cache";
 const ANILIST_ID_CACHE_KEY = "apw_anilist_id_cache";
 const ANILIST_AIRING_CACHE_KEY = "apw_anilist_airing_cache";
+const ANILIST_TOTAL_EP_CACHE_KEY = "apw_anilist_total_ep_cache";
 const SETTINGS_KEY = "apw_settings";
 
 const ANILIST_AIRING_TTL_MS = 60 * 60 * 1000;
@@ -25,6 +26,7 @@ const DEFAULT_SETTINGS = {
     showEpisodeNumber: true,
     showLastWatched: true,
     showProgress: true,
+    progressMode: "current",
     showSettingsButton: true,
     panelSide: "right"
 };
@@ -288,6 +290,7 @@ async function fetchAiringInfo(anilistId) {
         query ($id: Int) {
             Media(id: $id, type: ANIME) {
                 id
+                episodes
                 nextAiringEpisode {
                     airingAt
                     episode
@@ -302,7 +305,7 @@ async function fetchAiringInfo(anilistId) {
     return data && data.Media ? data.Media : null;
 }
 
-async function getCountdownForEntry(entry) {
+async function getAniListInfoForEntry(entry) {
     const idCache = await storageGet(ANILIST_ID_CACHE_KEY, {});
     const airingCache = await storageGet(ANILIST_AIRING_CACHE_KEY, {});
     const now = Date.now();
@@ -326,21 +329,27 @@ async function getCountdownForEntry(entry) {
     const cached = airingCache[anilistId];
 
     if (cached && now - cached.ts < ANILIST_AIRING_TTL_MS) {
-        return cached.airingAt ? cached.airingAt * 1000 : null;
+        return { airingAt: cached.airingAt ? cached.airingAt * 1000 : null, totalEpisodes: cached.totalEpisodes ?? null };
     }
 
     try {
         const info = await fetchAiringInfo(anilistId);
         const airingAt = info?.nextAiringEpisode?.airingAt || null;
+        const totalEpisodes = info?.episodes ?? null;
 
-        airingCache[anilistId] = { airingAt, ts: now };
+        airingCache[anilistId] = { airingAt, totalEpisodes, ts: now };
         await storageSet(ANILIST_AIRING_CACHE_KEY, airingCache);
 
-        return airingAt ? airingAt * 1000 : null;
+        return { airingAt: airingAt ? airingAt * 1000 : null, totalEpisodes };
     } catch (err) {
-        console.warn("[APW] Airing fetch failed:", entry.title, err);
+        console.warn("[APW] AniList fetch failed:", entry.title, err);
         return null;
     }
+}
+
+async function getCountdownForEntry(entry) {
+    const info = await getAniListInfoForEntry(entry);
+    return info?.airingAt ?? null;
 }
 
 // ---------- URL resolution ----------
@@ -1419,8 +1428,6 @@ function startCountdownTicker() {
 async function applyCountdowns(section) {
     const settings = await getSettings();
 
-    if (!settings.showCountdowns) return;
-
     const watched = (await getWatched()).filter(item => (item.status || "watching") === "watching");
 
     for (const entry of watched) {
@@ -1428,10 +1435,17 @@ async function applyCountdowns(section) {
         if (!card) continue;
 
         try {
-            const targetMs = await getCountdownForEntry(entry);
-            setCardCountdown(card, entry.animeUrl, targetMs);
+            const info = await getAniListInfoForEntry(entry);
+            if (info?.totalEpisodes != null) {
+                card.dataset.totalEp = String(info.totalEpisodes);
+            }
+            if (settings.showCountdowns) {
+                setCardCountdown(card, entry.animeUrl, info?.airingAt ?? null);
+            } else {
+                updateProgressText(card);
+            }
         } catch (err) {
-            console.warn("[APW] Countdown failed:", entry.title, err);
+            console.warn("[APW] AniList fetch failed:", entry.title, err);
         }
     }
 
@@ -1763,6 +1777,13 @@ async function buildPanel() {
                 <label class="apw-toggle"><span>Show new episode badges</span><input type="checkbox" data-setting="showNewEpisodeBadges"></label>
                 <label class="apw-toggle"><span>Show episode number</span><input type="checkbox" data-setting="showEpisodeNumber"></label>
                 <label class="apw-toggle"><span>Show progress text</span><input type="checkbox" data-setting="showProgress"></label>
+                <div class="apw-alignment-row apw-progress-mode-row">
+                    <span class="apw-align-label">Progress format</span>
+                    <div class="apw-align-btns">
+                        <button class="apw-align-btn" data-progress-mode="current" title="e.g. Watched 9 of 9">Current eps</button>
+                        <button class="apw-align-btn" data-progress-mode="total" title="e.g. Watched 9 of 13">Total eps</button>
+                    </div>
+                </div>
                 <label class="apw-toggle"><span>Show last watched time</span><input type="checkbox" data-setting="showLastWatched"></label>
             </section>
             <section class="apw-panel-section apw-section-preview">
@@ -1811,6 +1832,28 @@ async function buildPanel() {
         });
     });
 
+    const setActiveProgressMode = mode => {
+        wrap.querySelectorAll(".apw-align-btn[data-progress-mode]").forEach(btn => {
+            btn.classList.toggle("apw-align-btn-active", btn.dataset.progressMode === mode);
+        });
+    };
+    setActiveProgressMode(settings.progressMode || "current");
+
+    wrap.querySelectorAll(".apw-align-btn[data-progress-mode]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            await saveSettings({ progressMode: btn.dataset.progressMode });
+            setActiveProgressMode(btn.dataset.progressMode);
+            document.querySelectorAll("#animepahe-watchlist .apw-wrap").forEach(card => updateProgressText(card));
+        });
+    });
+
+    const progressModeRow = wrap.querySelector(".apw-progress-mode-row");
+    const syncProgressModeVisibility = () => {
+        const showProgressInput = wrap.querySelector("input[data-setting='showProgress']");
+        if (progressModeRow) progressModeRow.style.opacity = showProgressInput?.checked ? "1" : "0.4";
+    };
+    syncProgressModeVisibility();
+
     wrap.querySelectorAll(".apw-toggle input").forEach(input => {
         const key = input.dataset.setting;
         input.checked = settings[key] !== false;
@@ -1818,6 +1861,10 @@ async function buildPanel() {
             await saveSettings({ [key]: input.checked });
             if (key === "showSettingsButton" && isHomePage) {
                 refreshWatchlist();
+            }
+            if (key === "showProgress") {
+                syncProgressModeVisibility();
+                document.querySelectorAll("#animepahe-watchlist .apw-wrap").forEach(card => updateProgressText(card));
             }
         });
     });
@@ -1950,13 +1997,14 @@ function cleanupBadgeStack(card) {
     }
 }
 
-function updateProgressText(card) {
+async function updateProgressText(card) {
     const progress = card.querySelector(".apw-progress");
-
     if (!progress) return;
 
+    const settings = await getSettings();
     const watchedEp = parseFloat(card.dataset.watchedEp || "");
     const latestEp = parseFloat(card.dataset.latestEp || "");
+    const totalEp = parseFloat(card.dataset.totalEp || "");
     const hasAiring = card.dataset.hasAiring === "true";
 
     if (isNaN(watchedEp) || isNaN(latestEp)) {
@@ -1964,13 +2012,11 @@ function updateProgressText(card) {
         return;
     }
 
-    if (latestEp > watchedEp) {
-        progress.textContent = `Watched ${cleanEpisode(watchedEp)} of ${cleanEpisode(latestEp)}`;
-        return;
-    }
+    const useTotalMode = settings.progressMode === "total" && !isNaN(totalEp);
+    const denominator = useTotalMode ? totalEp : latestEp;
 
-    if (latestEp === watchedEp && hasAiring) {
-        progress.textContent = `Watched ${cleanEpisode(watchedEp)} of ${cleanEpisode(latestEp)}`;
+    if (latestEp > watchedEp || (latestEp === watchedEp && hasAiring)) {
+        progress.textContent = `Watched ${cleanEpisode(watchedEp)} of ${cleanEpisode(denominator)}`;
         return;
     }
 
