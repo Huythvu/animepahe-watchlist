@@ -434,6 +434,107 @@ function injectStyles() {
             align-items: center;
         }
 
+        .apw-update-banner {
+            width: 100%;
+            max-width: ${viewportWidth}px;
+            margin: 0 auto 0.75rem;
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: rgba(74, 222, 128, 0.08);
+            border: 1px solid rgba(74, 222, 128, 0.22);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 13px;
+            color: #d6f5e0;
+        }
+
+        .apw-update-banner.apw-update-critical {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.35);
+            color: #fde7b8;
+        }
+
+        .apw-update-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .apw-update-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #4ade80;
+            flex-shrink: 0;
+        }
+
+        .apw-update-banner.apw-update-critical .apw-update-dot {
+            background: #f59e0b;
+        }
+
+        .apw-update-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .apw-update-version {
+            color: #4ade80;
+            font-weight: 600;
+            margin: 0 2px;
+        }
+
+        .apw-update-banner.apw-update-critical .apw-update-version {
+            color: #f59e0b;
+        }
+
+        .apw-update-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .apw-update-link {
+            color: inherit;
+            font-size: 12px;
+            text-decoration: none;
+            padding: 4px 10px;
+            border: 1px solid rgba(74, 222, 128, 0.35);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .apw-update-banner.apw-update-critical .apw-update-link {
+            border-color: rgba(245, 158, 11, 0.45);
+        }
+
+        .apw-update-link:hover {
+            background: rgba(74, 222, 128, 0.12);
+        }
+
+        .apw-update-banner.apw-update-critical .apw-update-link:hover {
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .apw-update-dismiss {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 4px;
+            background: none;
+            border: none;
+        }
+
+        .apw-update-dismiss:hover {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
         .apw-header {
             width: 100%;
             max-width: ${viewportWidth}px;
@@ -1591,6 +1692,8 @@ async function renderWatchlist() {
 
         latestRelease.parentNode.insertBefore(section, latestRelease);
 
+        renderUpdateBanner(section);
+
         requestAnimationFrame(async () => {
             updateArrows();
             updateMeta();
@@ -1606,6 +1709,47 @@ async function renderWatchlist() {
             waitForLatestAndApplyBadges(section);
             applyCountdowns(section);
         }
+    });
+}
+
+function renderUpdateBanner(section) {
+    chrome.runtime.sendMessage({ type: "checkUpdate" }, response => {
+        if (chrome.runtime.lastError || !response) return;
+        if (!response.available) return;
+        if (response.dismissed && !response.critical) return;
+
+        const existing = section.querySelector(".apw-update-banner");
+        if (existing) existing.remove();
+
+        const banner = document.createElement("div");
+        banner.className = "apw-update-banner" + (response.critical ? " apw-update-critical" : "");
+
+        const notes = response.notes ? ` · ${response.notes}` : "";
+        const label = response.critical ? "Required update" : "Update available";
+        const dismissBtn = response.critical
+            ? ""
+            : `<button class="apw-update-dismiss" aria-label="Dismiss">×</button>`;
+
+        banner.innerHTML = `
+            <div class="apw-update-left">
+                <span class="apw-update-dot"></span>
+                <span class="apw-update-text">${label} — <span class="apw-update-version">v${response.latest}</span>${notes}</span>
+            </div>
+            <div class="apw-update-actions">
+                <a class="apw-update-link" href="${response.storeUrl}" target="_blank" rel="noopener noreferrer">View update</a>
+                ${dismissBtn}
+            </div>
+        `;
+
+        const dismiss = banner.querySelector(".apw-update-dismiss");
+        if (dismiss) {
+            dismiss.addEventListener("click", () => {
+                chrome.runtime.sendMessage({ type: "dismissUpdate", version: response.latest });
+                banner.remove();
+            });
+        }
+
+        section.insertBefore(banner, section.firstChild);
     });
 }
 
