@@ -141,7 +141,11 @@ async function saveCurrentEpisode() {
     if (!animeHref) return false;
 
     const existingList = await getWatched();
-    const existingEntry = existingList.find(item => item.animeUrl === animeHref);
+    let existingEntry = existingList.find(item => item.animeUrl === animeHref);
+
+    if (!existingEntry) {
+        existingEntry = existingList.find(item => item.title === animeTitle);
+    }
 
     if (!existingEntry) {
         const watchingCount = existingList.filter(item => (item.status || "watching") === "watching").length;
@@ -160,7 +164,11 @@ async function saveCurrentEpisode() {
         statusTs: existingEntry?.statusTs || Date.now()
     };
 
-    let list = existingList.filter(item => item.animeUrl !== entry.animeUrl);
+    if (existingEntry?.animeId) entry.animeId = existingEntry.animeId;
+
+    let list = existingList.filter(item =>
+        item !== existingEntry && item.animeUrl !== entry.animeUrl
+    );
     list.unshift(entry);
 
     await saveWatched(list);
