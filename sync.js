@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, Timestamp, increment } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, increment, deleteField } from "firebase/firestore";
 import { db } from "./firebase-config.js";
 
 const STORAGE_KEY = "recently_watched";
@@ -94,12 +94,21 @@ async function buildMetadata() {
     } catch {}
 
     return {
-        lastDevicePlatform: platformOs,
-        extensionVersion: chrome.runtime.getManifest().version,
-        deviceId: await getDeviceId(),
-        syncCount: increment(1)
+        "3_syncCount": increment(1),
+        "4_extensionVersion": chrome.runtime.getManifest().version,
+        "5_lastDevicePlatform": platformOs,
+        "6_deviceId": await getDeviceId()
     };
 }
+
+const LEGACY_FIELD_CLEANUP = {
+    createdAt: deleteField(),
+    updatedAt: deleteField(),
+    syncCount: deleteField(),
+    extensionVersion: deleteField(),
+    lastDevicePlatform: deleteField(),
+    deviceId: deleteField()
+};
 
 export async function uploadWatchlist(syncKey) {
     const docId = await syncKeyToDocumentId(syncKey);
@@ -110,15 +119,18 @@ export async function uploadWatchlist(syncKey) {
 
     const docRef = doc(db, "watchlists", docId);
     const snap = await getDoc(docRef);
-    const existingCreatedAt = snap.exists() ? snap.data().createdAt : null;
+    const existingCreatedAt = snap.exists()
+        ? (snap.data()["1_createdAt"] || snap.data().createdAt)
+        : null;
     const metadata = await buildMetadata();
 
     const writeData = {
         items: safeItems,
-        updatedAt: Timestamp.now(),
-        ...metadata
+        "2_updatedAt": Timestamp.now(),
+        ...metadata,
+        ...LEGACY_FIELD_CLEANUP
     };
-    if (!existingCreatedAt) writeData.createdAt = Timestamp.now();
+    if (!existingCreatedAt) writeData["1_createdAt"] = Timestamp.now();
 
     await setDoc(docRef, writeData, { merge: true });
 
@@ -162,7 +174,7 @@ export async function syncWatchlist(syncKey) {
     }
 
     const cloudItems = Array.isArray(snap.data().items) ? snap.data().items : [];
-    const existingCreatedAt = snap.data().createdAt || null;
+    const existingCreatedAt = snap.data()["1_createdAt"] || snap.data().createdAt || null;
 
     const mergedItems = mergeWatchlists(localItems, cloudItems);
 
@@ -174,10 +186,11 @@ export async function syncWatchlist(syncKey) {
 
     const writeData = {
         items: sanitizeItems(mergedItems),
-        updatedAt: Timestamp.now(),
-        ...metadata
+        "2_updatedAt": Timestamp.now(),
+        ...metadata,
+        ...LEGACY_FIELD_CLEANUP
     };
-    if (!existingCreatedAt) writeData.createdAt = Timestamp.now();
+    if (!existingCreatedAt) writeData["1_createdAt"] = Timestamp.now();
 
     await setDoc(docRef, writeData, { merge: true });
 
