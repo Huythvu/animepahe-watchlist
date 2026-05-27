@@ -330,18 +330,20 @@ async function getAniListInfoForEntry(entry) {
     const cacheHasTotal = cached && Object.prototype.hasOwnProperty.call(cached, "totalEpisodes");
 
     if (cached && cacheHasTotal && now - cached.ts < ANILIST_AIRING_TTL_MS) {
-        return { airingAt: cached.airingAt ? cached.airingAt * 1000 : null, totalEpisodes: cached.totalEpisodes };
+        return { airingAt: cached.airingAt ? cached.airingAt * 1000 : null, totalEpisodes: cached.totalEpisodes, nextAiringEp: cached.nextAiringEp ?? null, status: cached.status ?? null };
     }
 
     try {
         const info = await fetchAiringInfo(anilistId);
         const airingAt = info?.nextAiringEpisode?.airingAt || null;
         const totalEpisodes = info?.episodes ?? null;
+        const nextAiringEp = info?.nextAiringEpisode?.episode ?? null;
+        const status = info?.status ?? null;
 
-        airingCache[anilistId] = { airingAt, totalEpisodes, ts: now };
+        airingCache[anilistId] = { airingAt, totalEpisodes, nextAiringEp, status, ts: now };
         await storageSet(ANILIST_AIRING_CACHE_KEY, airingCache);
 
-        return { airingAt: airingAt ? airingAt * 1000 : null, totalEpisodes };
+        return { airingAt: airingAt ? airingAt * 1000 : null, totalEpisodes, nextAiringEp, status };
     } catch (err) {
         console.warn("[APW] AniList fetch failed:", entry.title, err);
         return null;
@@ -1440,6 +1442,12 @@ async function applyCountdowns(section) {
             if (info?.totalEpisodes != null) {
                 card.dataset.totalEp = String(info.totalEpisodes);
             }
+            if (info?.nextAiringEp != null) {
+                card.dataset.nextAiringEp = String(info.nextAiringEp);
+            }
+            if (info?.status != null) {
+                card.dataset.anilistStatus = info.status;
+            }
             if (settings.showCountdowns) {
                 setCardCountdown(card, entry.animeUrl, info?.airingAt ?? null);
             } else {
@@ -2007,7 +2015,9 @@ async function updateProgressText(card) {
     const settings = await getSettings();
     const watchedEp = parseFloat(card.dataset.watchedEp || "");
     const latestEp = parseFloat(card.dataset.latestEp || "");
-    const totalEp = parseFloat(card.dataset.totalEp || "");
+    const anilistTotal = parseFloat(card.dataset.totalEp || "");
+    const nextAiringEp = parseFloat(card.dataset.nextAiringEp || "");
+    const anilistStatus = card.dataset.anilistStatus || "";
     const hasAiring = card.dataset.hasAiring === "true";
 
     if (isNaN(watchedEp) || isNaN(latestEp)) {
@@ -2015,12 +2025,27 @@ async function updateProgressText(card) {
         return;
     }
 
+    // Calculate the offset between AnimePahe's continuous numbering and AniList's per-season numbering.
+    // e.g. AniList says 13 eps in this cour and next ep is #14, but AnimePahe is on ep 37 → offset = 37 - 13 = 24
+    let apTotal = null;
+    if (!isNaN(anilistTotal)) {
+        let offset = 0;
+        if (!isNaN(nextAiringEp) && nextAiringEp > 1) {
+            // Airing: AniList current = nextAiringEp - 1
+            offset = Math.max(0, latestEp - (nextAiringEp - 1));
+        } else if (anilistStatus === "FINISHED") {
+            // Finished: latest AnimePahe ep - AniList total = offset (whole season is out)
+            offset = Math.max(0, latestEp - anilistTotal);
+        }
+        apTotal = offset + anilistTotal;
+    }
+
     const totalMode = settings.progressMode === "total";
     const denominator = totalMode
-        ? (isNaN(totalEp) ? "?" : cleanEpisode(totalEp))
+        ? (apTotal !== null ? cleanEpisode(apTotal) : "?")
         : cleanEpisode(latestEp);
 
-    if (latestEp > watchedEp || (latestEp === watchedEp && hasAiring) || (totalMode && (isNaN(totalEp) || totalEp > watchedEp))) {
+    if (latestEp > watchedEp || (latestEp === watchedEp && hasAiring) || (totalMode && (apTotal === null || apTotal > watchedEp))) {
         progress.textContent = `Watched ${cleanEpisode(watchedEp)} of ${denominator}`;
         return;
     }
