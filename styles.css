@@ -35,8 +35,9 @@ body {
 }
 
 h1 {
-    font-size: 17px;
+    font-size: 20px;
     margin: 0;
+    line-height: 1.2;
 }
 
 h2 {
@@ -47,9 +48,9 @@ h2 {
 
 .subtitle,
 .hint {
-    margin: 6px 0 0;
+    margin: 8px 0 0;
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.45;
     color: rgba(255, 255, 255, 0.65);
 }
 
@@ -144,30 +145,10 @@ h2 {
     border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* ---------- Settings link ---------- */
+/* ---------- Settings pill ---------- */
 
-.settings-link-row {
-    margin-bottom: 2px;
-    text-align: right;
-}
-
-.settings-link-btn {
-    width: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 0;
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.45);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.15s;
-}
-
-.settings-link-btn:hover {
-    color: rgba(255, 255, 255, 0.8);
+.pill-settings {
+    color: rgba(255, 255, 255, 0.85);
 }
 
 /* ---------- Customize section ---------- */
