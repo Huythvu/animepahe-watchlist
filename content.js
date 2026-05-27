@@ -2148,38 +2148,35 @@ function dismissAutoplayCountdown() {
         autoplayCountdownTimer = null;
     }
     document.getElementById(AUTOPLAY_COUNTDOWN_ID)?.remove();
+    document.getElementById(AUTOPLAY_PILL_ID)?.classList.remove("apw-hidden-pill");
 }
 
 function showAutoplayCountdown(nextUrl) {
     dismissAutoplayCountdown();
 
-    const player = document.querySelector(".theatre .player");
-    if (!player) {
+    const bar = document.querySelector(".apw-player-bar");
+    if (!bar) {
         window.location.href = nextUrl;
         return;
     }
+
+    const pillWrap = document.getElementById(AUTOPLAY_PILL_ID);
+    if (pillWrap) pillWrap.classList.add("apw-hidden-pill");
 
     const card = document.createElement("div");
     card.id = AUTOPLAY_COUNTDOWN_ID;
     card.className = "apw-autoplay-countdown";
     card.innerHTML = `
-        <div class="apw-countdown-text">Next episode in <strong class="apw-countdown-num">${AUTOPLAY_COUNTDOWN_SECONDS}</strong>s</div>
-        <div class="apw-countdown-actions">
-            <button type="button" class="apw-countdown-cancel">Cancel</button>
-            <button type="button" class="apw-countdown-play">Play now</button>
-        </div>
+        <span class="apw-countdown-text">Next episode in <strong class="apw-countdown-num">${AUTOPLAY_COUNTDOWN_SECONDS}</strong>s</span>
+        <button type="button" class="apw-countdown-cancel" aria-label="Cancel">×</button>
         <div class="apw-countdown-bar"><div class="apw-countdown-bar-fill"></div></div>
     `;
 
     const numEl = card.querySelector(".apw-countdown-num");
     const fillEl = card.querySelector(".apw-countdown-bar-fill");
     card.querySelector(".apw-countdown-cancel").addEventListener("click", dismissAutoplayCountdown);
-    card.querySelector(".apw-countdown-play").addEventListener("click", () => {
-        dismissAutoplayCountdown();
-        window.location.href = nextUrl;
-    });
 
-    player.appendChild(card);
+    bar.appendChild(card);
 
     requestAnimationFrame(() => { fillEl.style.width = "0%"; });
 
@@ -2200,14 +2197,15 @@ function injectPlayPageStyles() {
     const style = document.createElement("style");
     style.id = PLAY_PAGE_STYLES_ID;
     style.textContent = `
-        .theatre .player { position: relative; }
-        .apw-autoplay-wrap {
-            position: absolute;
-            right: 8px;
-            bottom: 8px;
-            z-index: 10;
-            pointer-events: auto;
+        .apw-player-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 6px 0 2px;
         }
+        .apw-autoplay-wrap { display: inline-flex; }
+        .apw-autoplay-wrap.apw-hidden-pill { display: none; }
         .apw-autoplay-pill {
             display: inline-flex;
             align-items: center;
@@ -2258,69 +2256,57 @@ function injectPlayPageStyles() {
             background: rgba(255,255,255,0.55);
         }
         .apw-autoplay-countdown {
-            position: absolute;
-            right: 16px;
-            bottom: 50px;
-            z-index: 11;
-            min-width: 240px;
-            padding: 12px 14px 10px;
-            background: rgba(15, 15, 20, 0.94);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 10px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            color: #fff;
-            font-family: inherit;
-            font-size: 13px;
-            animation: apw-countdown-in 0.2s ease;
-        }
-        @keyframes apw-countdown-in {
-            from { transform: translateY(8px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .apw-countdown-text {
-            margin-bottom: 10px;
-            color: rgba(255,255,255,0.85);
-        }
-        .apw-countdown-num {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 8px 5px 12px;
+            border-radius: 999px;
+            background: rgba(79,140,255,0.14);
+            border: 1px solid rgba(79,140,255,0.4);
             color: #9cccff;
-            font-weight: 700;
-            font-size: 15px;
-            margin: 0 2px;
-        }
-        .apw-countdown-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            margin-bottom: 10px;
-        }
-        .apw-countdown-actions button {
             font-family: inherit;
             font-size: 12px;
             font-weight: 600;
-            border-radius: 6px;
-            padding: 6px 12px;
-            cursor: pointer;
-            border: 1px solid transparent;
+            overflow: hidden;
+            animation: apw-countdown-in 0.18s ease;
+        }
+        @keyframes apw-countdown-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .apw-countdown-text { white-space: nowrap; }
+        .apw-countdown-num {
+            color: #fff;
+            font-weight: 700;
+            margin: 0 1px;
         }
         .apw-countdown-cancel {
-            background: rgba(255,255,255,0.06);
-            color: rgba(255,255,255,0.7);
-            border-color: rgba(255,255,255,0.12);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.65);
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
         }
         .apw-countdown-cancel:hover {
-            background: rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.18);
             color: #fff;
         }
-        .apw-countdown-play {
-            background: #4f8cff;
-            color: #fff;
-        }
-        .apw-countdown-play:hover { background: #5a96ff; }
         .apw-countdown-bar {
-            height: 3px;
-            background: rgba(255,255,255,0.08);
-            border-radius: 2px;
-            overflow: hidden;
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            background: transparent;
         }
         .apw-countdown-bar-fill {
             height: 100%;
@@ -2348,8 +2334,16 @@ async function injectAutoPlayPill() {
     if (settings.showAutoPlayPill === false) return;
 
     const player = document.querySelector(".theatre .player");
-    if (!player) return;
+    const theatreSettings = document.querySelector(".theatre .theatre-settings");
+    if (!player || !theatreSettings) return;
     if (document.getElementById(AUTOPLAY_PILL_ID)) return;
+
+    let bar = document.querySelector(".apw-player-bar");
+    if (!bar) {
+        bar = document.createElement("div");
+        bar.className = "apw-player-bar";
+        theatreSettings.parentNode.insertBefore(bar, theatreSettings);
+    }
 
     const nextUrl = getNextEpisodeUrl();
 
@@ -2383,11 +2377,13 @@ async function injectAutoPlayPill() {
     });
 
     wrap.appendChild(pill);
-    player.appendChild(wrap);
+    bar.appendChild(wrap);
 }
 
 function removeAutoPlayPill() {
     document.getElementById(AUTOPLAY_PILL_ID)?.remove();
+    const bar = document.querySelector(".apw-player-bar");
+    if (bar && !bar.children.length) bar.remove();
 }
 
 window.addEventListener("message", async event => {
