@@ -81,7 +81,7 @@ function injectStyles() {
             right: 20px;
             bottom: 75px;
             z-index: 2147483647;
-            display: inline-flex;
+            display: inline-flex !important;
             align-items: center;
             gap: 10px;
             padding: 7px 8px 7px 14px;
@@ -97,6 +97,13 @@ function injectStyles() {
             overflow: hidden;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
             animation: apw-cd-in 0.18s ease;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+        #${COUNTDOWN_OVERLAY_ID} * {
+            opacity: 1 !important;
+            visibility: visible !important;
         }
         #${COUNTDOWN_OVERLAY_ID}.apw-cd-fullscreen {
             right: 28px;
