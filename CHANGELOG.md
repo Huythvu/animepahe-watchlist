@@ -3,9 +3,14 @@
 ## v1.4.0 — Settings panel
 
 - Widget customization settings moved out of the popup into a dedicated side panel that slides in over AnimePahe
-- New settings pill next to the Currently Watching / Plan to Watch tabs opens the panel, styled to match the existing tab pills
+- New Settings pill next to the Currently Watching / Plan to Watch tabs opens the panel, styled to match the existing tab pills
 - "Settings ↗" pill in the popup opens the panel on the active AnimePahe tab, or opens AnimePahe first when used elsewhere
 - Popup header reorganized: AnimePahe, Settings, and the widget enable toggle sit in a single row below the title
+- Panel can be opened from the left or right side of the screen
+- Option to hide the Settings pill on the homepage widget
+- Progress text can now show either current aired episodes (9 of 9) or the total planned episode count (9 of 13)
+- Total episode count is normalized to AnimePahe's continuous numbering across season parts (e.g. 31 of 37 instead of 31 of 13)
+- Shows "?" when AniList doesn't expose a total to avoid implying a show has ended when it hasn't
 - Panel uses Shadow DOM so its styling is fully isolated from AnimePahe
 
 ## v1.3.0 — Duplicate fix
