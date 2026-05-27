@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Animepahe Watchlist",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Adds a Currently Watching and Plan to Watch list to Animepahe.",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
@@ -24,6 +24,12 @@
       "matches": ["https://animepahe.pw/*"],
       "js": ["content.js"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["panel.css"],
+      "matches": ["https://animepahe.pw/*"]
     }
   ],
   "action": {
