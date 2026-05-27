@@ -470,21 +470,22 @@ function injectStyles() {
         }
 
         .apw-settings-gear-tab {
-            background: transparent;
-            border: none;
-            color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.04);
+            color: inherit;
+            border-radius: 999px;
+            padding: 5px 10px;
             cursor: pointer;
-            padding: 4px 6px;
+            opacity: 0.75;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 6px;
-            transition: color 0.15s, background 0.15s;
+            transition: background 0.15s, opacity 0.15s, border-color 0.15s;
         }
 
         .apw-settings-gear-tab:hover {
-            color: rgba(255, 255, 255, 0.85);
-            background: rgba(255, 255, 255, 0.06);
+            opacity: 1;
+            background: rgba(255,255,255,0.08);
         }
 
         .apw-controls {
