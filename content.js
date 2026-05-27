@@ -2178,8 +2178,6 @@ function injectPlayPageStyles() {
             justify-content: flex-end;
             gap: 8px;
             margin: 6px auto 2px;
-            max-width: 1100px;
-            width: 100%;
         }
         .apw-autoplay-wrap { display: inline-flex; }
         .apw-autoplay-pill {
@@ -2266,6 +2264,16 @@ async function injectAutoPlayPill() {
         bar.id = AUTOPLAY_BAR_ID;
         bar.className = "apw-player-bar";
         player.insertAdjacentElement("afterend", bar);
+
+        const syncWidth = () => {
+            bar.style.width = player.offsetWidth + "px";
+        };
+        syncWidth();
+        if (typeof ResizeObserver !== "undefined") {
+            new ResizeObserver(syncWidth).observe(player);
+        } else {
+            window.addEventListener("resize", syncWidth);
+        }
     }
 
     const nextUrl = getNextEpisodeUrl();
