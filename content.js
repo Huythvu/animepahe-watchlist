@@ -2137,7 +2137,7 @@ async function checkAutoOpenFlag() {
 // ---------- Auto-play next episode (play page only) ----------
 const AUTOPLAY_PILL_ID = "apw-autoplay-pill";
 const AUTOPLAY_BAR_ID = "apw-player-bar-outer";
-const AUTOPLAY_COUNTDOWN_SECONDS = 5;
+const AUTOPLAY_COUNTDOWN_SECONDS = 10;
 const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
 const AUTOPLAY_STORAGE_KEY = "apw_autoplay_next";
 
