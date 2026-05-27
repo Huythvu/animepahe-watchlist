@@ -192,12 +192,23 @@ function showCountdownOverlay(seconds) {
     }, 1000);
 }
 
+function tryPlay(tries = 0) {
+    const video = document.querySelector("video");
+    if (video) {
+        video.play().catch(() => {});
+        return;
+    }
+    if (tries < 30) setTimeout(() => tryPlay(tries + 1), 500);
+}
+
 window.addEventListener("message", event => {
     if (event.data?.source !== "apw-host") return;
     if (event.data?.type === "startCountdown") {
         showCountdownOverlay(event.data.seconds ?? 5);
     } else if (event.data?.type === "cancelCountdown") {
         removeOverlay();
+    } else if (event.data?.type === "autoPlay") {
+        tryPlay();
     }
 });
 

@@ -2136,8 +2136,10 @@ async function checkAutoOpenFlag() {
 
 // ---------- Auto-play next episode (play page only) ----------
 const AUTOPLAY_PILL_ID = "apw-autoplay-pill";
+const AUTOPLAY_BAR_ID = "apw-player-bar-outer";
 const AUTOPLAY_COUNTDOWN_SECONDS = 5;
 const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
+const AUTOPLAY_STORAGE_KEY = "apw_autoplay_next";
 
 let pendingNextUrl = null;
 
@@ -2250,11 +2252,18 @@ async function injectAutoPlayPill() {
     if (!player) return;
     if (document.getElementById(AUTOPLAY_PILL_ID)) return;
 
-    let bar = player.querySelector(":scope > .apw-player-bar");
+    // Ensure iframe has autoplay permission for future navigations
+    const iframe = getPlayerIframe();
+    if (iframe && !iframe.allow?.includes("autoplay")) {
+        iframe.allow = (iframe.allow ? iframe.allow + "; " : "") + "autoplay";
+    }
+
+    let bar = document.getElementById(AUTOPLAY_BAR_ID);
     if (!bar) {
         bar = document.createElement("div");
+        bar.id = AUTOPLAY_BAR_ID;
         bar.className = "apw-player-bar";
-        player.appendChild(bar);
+        player.insertAdjacentElement("afterend", bar);
     }
 
     const nextUrl = getNextEpisodeUrl();
@@ -2294,8 +2303,22 @@ async function injectAutoPlayPill() {
 
 function removeAutoPlayPill() {
     document.getElementById(AUTOPLAY_PILL_ID)?.remove();
-    const bar = document.querySelector(".apw-player-bar");
+    const bar = document.getElementById(AUTOPLAY_BAR_ID);
     if (bar && !bar.children.length) bar.remove();
+}
+
+function tryAutoPlayInIframe(attempts = 0) {
+    const iframe = getPlayerIframe();
+    if (iframe?.contentWindow) {
+        if (!iframe.allow?.includes("autoplay")) {
+            iframe.allow = (iframe.allow ? iframe.allow + "; " : "") + "autoplay";
+        }
+        iframe.contentWindow.postMessage({ source: "apw-host", type: "autoPlay" }, "*");
+        return;
+    }
+    if (attempts < 40) {
+        setTimeout(() => tryAutoPlayInIframe(attempts + 1), 300);
+    }
 }
 
 window.addEventListener("message", async event => {
@@ -2317,6 +2340,7 @@ window.addEventListener("message", async event => {
     if (type === "countdownDone" && pendingNextUrl) {
         const target = pendingNextUrl;
         pendingNextUrl = null;
+        sessionStorage.setItem(AUTOPLAY_STORAGE_KEY, "1");
         window.location.href = target;
         return;
     }
@@ -2338,6 +2362,11 @@ if (isPlayPage) {
     injectAutoPlayPill();
     const playPageObserver = new MutationObserver(() => injectAutoPlayPill());
     playPageObserver.observe(document.body, { childList: true, subtree: true });
+
+    if (sessionStorage.getItem(AUTOPLAY_STORAGE_KEY)) {
+        sessionStorage.removeItem(AUTOPLAY_STORAGE_KEY);
+        tryAutoPlayInIframe();
+    }
 }
 
 if (isHomePage) {
