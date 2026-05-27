@@ -7,7 +7,6 @@ const COUNTDOWN_OVERLAY_ID = "apw-countdown-overlay";
 const NEAR_END_THRESHOLD_SEC = 10;
 const STYLE_ID = "apw-iframe-styles";
 
-let lastSentEndedAt = 0;
 let countdownTimer = null;
 
 function postToParent(payload) {
@@ -16,16 +15,15 @@ function postToParent(payload) {
     } catch {}
 }
 
-function postEnded() {
-    const now = Date.now();
-    if (now - lastSentEndedAt < 5000) return;
-    lastSentEndedAt = now;
-    postToParent({ type: "videoEnded" });
-}
-
 function attachToVideo(video) {
     if (video.dataset.apwBound === "1") return;
     video.dataset.apwBound = "1";
+
+    const postEnded = () => {
+        if (video.dataset.apwEndedSent === "1") return;
+        video.dataset.apwEndedSent = "1";
+        postToParent({ type: "videoEnded" });
+    };
 
     video.addEventListener("ended", postEnded);
 
@@ -33,6 +31,12 @@ function attachToVideo(video) {
         if (!isFinite(video.duration) || video.duration === 0) return;
         if (video.duration - video.currentTime < NEAR_END_THRESHOLD_SEC && !video.paused) {
             postEnded();
+        }
+    });
+
+    video.addEventListener("seeking", () => {
+        if (isFinite(video.duration) && video.duration - video.currentTime >= NEAR_END_THRESHOLD_SEC) {
+            video.dataset.apwEndedSent = "";
         }
     });
 }
