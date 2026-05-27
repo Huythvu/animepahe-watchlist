@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.5.0 — Player features
+
+- Auto-play next episode: when the current episode ends, a countdown card appears at the bottom-right of the player and navigates to the next episode after 5 seconds
+- Cancel and Play now buttons on the countdown card to opt out or skip the wait
+- Auto-play toggle pill sits in the bottom-right of the player so it can be flipped on or off without leaving the page
+- Panel option to hide the auto-play pill entirely if you never want it
+- Resume from last position and Skip intro / outro (AniSkip) are listed in the Player section as upcoming
+
 ## v1.4.0 — Settings panel
 
 - Widget customization settings moved out of the popup into a dedicated side panel that slides in over AnimePahe
