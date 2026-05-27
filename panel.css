@@ -157,6 +157,38 @@
     color: #9cccff;
 }
 
+/* ---- Combo group (toggle + sub-control stacked) ---- */
+
+.apw-combo-group {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    overflow: hidden;
+}
+
+.apw-combo-group .apw-combo-toggle {
+    margin-bottom: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+.apw-combo-group .apw-combo-sub {
+    margin-bottom: 0;
+    background: transparent;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.apw-combo-group .apw-combo-sub.apw-combo-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
 /* ---- Toggles ---- */
 
 .apw-toggle {
