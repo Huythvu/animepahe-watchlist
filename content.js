@@ -327,9 +327,11 @@ async function getAniListInfoForEntry(entry) {
     if (!anilistId) return null;
 
     const cached = airingCache[anilistId];
-    const cacheHasTotal = cached && Object.prototype.hasOwnProperty.call(cached, "totalEpisodes");
+    const cacheComplete = cached
+        && Object.prototype.hasOwnProperty.call(cached, "totalEpisodes")
+        && Object.prototype.hasOwnProperty.call(cached, "status");
 
-    if (cached && cacheHasTotal && now - cached.ts < ANILIST_AIRING_TTL_MS) {
+    if (cached && cacheComplete && now - cached.ts < ANILIST_AIRING_TTL_MS) {
         return { airingAt: cached.airingAt ? cached.airingAt * 1000 : null, totalEpisodes: cached.totalEpisodes, nextAiringEp: cached.nextAiringEp ?? null, status: cached.status ?? null };
     }
 
