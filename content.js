@@ -2136,60 +2136,33 @@ async function checkAutoOpenFlag() {
 
 // ---------- Auto-play next episode (play page only) ----------
 const AUTOPLAY_PILL_ID = "apw-autoplay-pill";
-const AUTOPLAY_COUNTDOWN_ID = "apw-autoplay-countdown";
 const AUTOPLAY_COUNTDOWN_SECONDS = 5;
 const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
 
-let autoplayCountdownTimer = null;
+let pendingNextUrl = null;
 
-function dismissAutoplayCountdown() {
-    if (autoplayCountdownTimer) {
-        clearInterval(autoplayCountdownTimer);
-        autoplayCountdownTimer = null;
-    }
-    document.getElementById(AUTOPLAY_COUNTDOWN_ID)?.remove();
-    document.getElementById(AUTOPLAY_PILL_ID)?.classList.remove("apw-hidden-pill");
+function getPlayerIframe() {
+    return document.querySelector(".theatre .player iframe");
 }
 
-function showAutoplayCountdown(nextUrl) {
-    dismissAutoplayCountdown();
-
-    const bar = document.querySelector(".apw-player-bar");
-    if (!bar) {
+function startCountdownInIframe(nextUrl) {
+    const iframe = getPlayerIframe();
+    if (!iframe?.contentWindow) {
         window.location.href = nextUrl;
         return;
     }
+    pendingNextUrl = nextUrl;
+    iframe.contentWindow.postMessage({
+        source: "apw-host",
+        type: "startCountdown",
+        seconds: AUTOPLAY_COUNTDOWN_SECONDS
+    }, "*");
+}
 
-    const pillWrap = document.getElementById(AUTOPLAY_PILL_ID);
-    if (pillWrap) pillWrap.classList.add("apw-hidden-pill");
-
-    const card = document.createElement("div");
-    card.id = AUTOPLAY_COUNTDOWN_ID;
-    card.className = "apw-autoplay-countdown";
-    card.innerHTML = `
-        <span class="apw-countdown-text">Next episode in <strong class="apw-countdown-num">${AUTOPLAY_COUNTDOWN_SECONDS}</strong>s</span>
-        <button type="button" class="apw-countdown-cancel" aria-label="Cancel">×</button>
-        <div class="apw-countdown-bar"><div class="apw-countdown-bar-fill"></div></div>
-    `;
-
-    const numEl = card.querySelector(".apw-countdown-num");
-    const fillEl = card.querySelector(".apw-countdown-bar-fill");
-    card.querySelector(".apw-countdown-cancel").addEventListener("click", dismissAutoplayCountdown);
-
-    bar.appendChild(card);
-
-    requestAnimationFrame(() => { fillEl.style.width = "0%"; });
-
-    let remaining = AUTOPLAY_COUNTDOWN_SECONDS;
-    autoplayCountdownTimer = setInterval(() => {
-        remaining -= 1;
-        if (remaining <= 0) {
-            dismissAutoplayCountdown();
-            window.location.href = nextUrl;
-            return;
-        }
-        numEl.textContent = String(remaining);
-    }, 1000);
+function cancelCountdownInIframe() {
+    pendingNextUrl = null;
+    const iframe = getPlayerIframe();
+    iframe?.contentWindow?.postMessage({ source: "apw-host", type: "cancelCountdown" }, "*");
 }
 
 function injectPlayPageStyles() {
@@ -2205,7 +2178,6 @@ function injectPlayPageStyles() {
             margin: 6px 0 2px;
         }
         .apw-autoplay-wrap { display: inline-flex; }
-        .apw-autoplay-wrap.apw-hidden-pill { display: none; }
         .apw-autoplay-pill {
             display: inline-flex;
             align-items: center;
@@ -2255,65 +2227,6 @@ function injectPlayPageStyles() {
             left: 1px;
             background: rgba(255,255,255,0.55);
         }
-        .apw-autoplay-countdown {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 5px 8px 5px 12px;
-            border-radius: 999px;
-            background: rgba(79,140,255,0.14);
-            border: 1px solid rgba(79,140,255,0.4);
-            color: #9cccff;
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 600;
-            overflow: hidden;
-            animation: apw-countdown-in 0.18s ease;
-        }
-        @keyframes apw-countdown-in {
-            from { opacity: 0; transform: translateY(4px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        .apw-countdown-text { white-space: nowrap; }
-        .apw-countdown-num {
-            color: #fff;
-            font-weight: 700;
-            margin: 0 1px;
-        }
-        .apw-countdown-cancel {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: none;
-            background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.65);
-            font-size: 14px;
-            line-height: 1;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-        }
-        .apw-countdown-cancel:hover {
-            background: rgba(255,255,255,0.18);
-            color: #fff;
-        }
-        .apw-countdown-bar {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 2px;
-            background: transparent;
-        }
-        .apw-countdown-bar-fill {
-            height: 100%;
-            width: 100%;
-            background: linear-gradient(90deg, #4f8cff, #9cccff);
-            transition: width ${AUTOPLAY_COUNTDOWN_SECONDS}s linear;
-        }
     `;
     document.head.appendChild(style);
 }
@@ -2334,15 +2247,14 @@ async function injectAutoPlayPill() {
     if (settings.showAutoPlayPill === false) return;
 
     const player = document.querySelector(".theatre .player");
-    const theatreSettings = document.querySelector(".theatre .theatre-settings");
-    if (!player || !theatreSettings) return;
+    if (!player) return;
     if (document.getElementById(AUTOPLAY_PILL_ID)) return;
 
-    let bar = document.querySelector(".apw-player-bar");
+    let bar = player.querySelector(":scope > .apw-player-bar");
     if (!bar) {
         bar = document.createElement("div");
         bar.className = "apw-player-bar";
-        theatreSettings.parentNode.insertBefore(bar, theatreSettings);
+        player.appendChild(bar);
     }
 
     const nextUrl = getNextEpisodeUrl();
@@ -2373,7 +2285,7 @@ async function injectAutoPlayPill() {
         const next = current.autoPlayNext === false ? true : false;
         await saveSettings({ autoPlayNext: next });
         applyState(next);
-        if (!next) dismissAutoplayCountdown();
+        if (!next) cancelCountdownInIframe();
     });
 
     wrap.appendChild(pill);
@@ -2387,17 +2299,31 @@ function removeAutoPlayPill() {
 }
 
 window.addEventListener("message", async event => {
-    if (event.data?.source !== "apw-player" || event.data?.type !== "videoEnded") return;
+    if (event.data?.source !== "apw-player") return;
     if (!isPlayPage) return;
 
-    const settings = await getSettings();
-    if (settings.autoPlayNext === false) return;
-    if (settings.showAutoPlayPill === false) return;
+    const { type } = event.data;
 
-    const nextUrl = getNextEpisodeUrl();
-    if (!nextUrl) return;
+    if (type === "videoEnded") {
+        const settings = await getSettings();
+        if (settings.autoPlayNext === false) return;
+        if (settings.showAutoPlayPill === false) return;
+        const nextUrl = getNextEpisodeUrl();
+        if (!nextUrl) return;
+        startCountdownInIframe(nextUrl);
+        return;
+    }
 
-    showAutoplayCountdown(nextUrl);
+    if (type === "countdownDone" && pendingNextUrl) {
+        const target = pendingNextUrl;
+        pendingNextUrl = null;
+        window.location.href = target;
+        return;
+    }
+
+    if (type === "countdownCancelled") {
+        pendingNextUrl = null;
+    }
 });
 
 // ---------- Run ----------
