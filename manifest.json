@@ -6,6 +6,7 @@
   "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://animepahe.pw/*",
+    "https://kwik.cx/*",
     "https://graphql.anilist.co/*",
     "https://firestore.googleapis.com/*"
   ],
@@ -24,6 +25,12 @@
       "matches": ["https://animepahe.pw/*"],
       "js": ["content.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["https://kwik.cx/*"],
+      "js": ["player.js"],
+      "run_at": "document_end",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [

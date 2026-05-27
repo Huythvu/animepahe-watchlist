@@ -28,7 +28,9 @@ const DEFAULT_SETTINGS = {
     showProgress: true,
     progressMode: "current",
     showSettingsButton: true,
-    panelSide: "right"
+    panelSide: "right",
+    showAutoPlayPill: true,
+    autoPlayNext: true
 };
 
 let countdownTargets = new Map();
@@ -1799,15 +1801,14 @@ async function buildPanel() {
                 </div>
                 <label class="apw-toggle"><span>Show last watched time</span><input type="checkbox" data-setting="showLastWatched"></label>
             </section>
-            <section class="apw-panel-section apw-section-preview">
+            <section class="apw-panel-section">
                 <div class="apw-section-header">
-                    <h3 class="apw-section-title">Player <span class="apw-section-badge">Coming in v1.5.0</span></h3>
-                    <p class="apw-section-desc">Features for the AnimePahe video player page.</p>
+                    <h3 class="apw-section-title">Player</h3>
+                    <p class="apw-section-desc">Controls that appear on AnimePahe video pages.</p>
                 </div>
-                <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position</span><input type="checkbox" disabled></label>
-                <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip)</span><input type="checkbox" disabled></label>
-                <label class="apw-toggle apw-toggle-disabled"><span>Auto-play next episode</span><input type="checkbox" disabled></label>
-                <label class="apw-toggle apw-toggle-disabled"><span>Show progress bar on cards</span><input type="checkbox" disabled></label>
+                <label class="apw-toggle"><span>Show auto-play next on play page</span><input type="checkbox" data-setting="showAutoPlayPill"></label>
+                <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
+                <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip) <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
             </section>
         </div>
         <footer class="apw-panel-footer">
@@ -1873,6 +1874,10 @@ async function buildPanel() {
             await saveSettings({ [key]: input.checked });
             if (key === "showSettingsButton" && isHomePage) {
                 refreshWatchlist();
+            }
+            if (key === "showAutoPlayPill" && isPlayPage) {
+                if (input.checked) injectAutoPlayPill();
+                else removeAutoPlayPill();
             }
             if (key === "showProgress") {
                 syncProgressModeVisibility();
@@ -2129,6 +2134,145 @@ async function checkAutoOpenFlag() {
     } catch {}
 }
 
+// ---------- Auto-play next episode (play page only) ----------
+const AUTOPLAY_PILL_ID = "apw-autoplay-pill";
+const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
+
+function injectPlayPageStyles() {
+    if (document.getElementById(PLAY_PAGE_STYLES_ID)) return;
+    const style = document.createElement("style");
+    style.id = PLAY_PAGE_STYLES_ID;
+    style.textContent = `
+        .apw-autoplay-wrap {
+            display: flex;
+            justify-content: flex-end;
+            padding: 10px 0 12px;
+        }
+        .apw-autoplay-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px 5px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid rgba(79,140,255,0.4);
+            background: rgba(79,140,255,0.14);
+            color: #9cccff;
+            transition: background 0.15s;
+            font-family: inherit;
+        }
+        .apw-autoplay-pill:hover { background: rgba(79,140,255,0.22); }
+        .apw-autoplay-pill:disabled { opacity: 0.45; cursor: not-allowed; }
+        .apw-autoplay-pill.apw-autoplay-off {
+            border-color: rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.55);
+        }
+        .apw-autoplay-switch {
+            width: 26px;
+            height: 14px;
+            border-radius: 999px;
+            background: rgba(79,140,255,0.45);
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+        .apw-autoplay-switch::after {
+            content: "";
+            position: absolute;
+            top: 1px;
+            left: 13px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #9cccff;
+            transition: left 0.15s, background 0.15s;
+        }
+        .apw-autoplay-pill.apw-autoplay-off .apw-autoplay-switch {
+            background: rgba(255,255,255,0.15);
+        }
+        .apw-autoplay-pill.apw-autoplay-off .apw-autoplay-switch::after {
+            left: 1px;
+            background: rgba(255,255,255,0.55);
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function getNextEpisodeUrl() {
+    const active = document.querySelector(".episode-menu .dropdown-item.active");
+    if (!active) return null;
+
+    let sibling = active.nextElementSibling;
+    while (sibling && !sibling.classList.contains("dropdown-item")) {
+        sibling = sibling.nextElementSibling;
+    }
+    return sibling?.href || null;
+}
+
+async function injectAutoPlayPill() {
+    const settings = await getSettings();
+    if (settings.showAutoPlayPill === false) return;
+
+    const player = document.querySelector(".theatre .player");
+    const theatreSettings = document.querySelector(".theatre .theatre-settings");
+    if (!player || !theatreSettings) return;
+    if (document.getElementById(AUTOPLAY_PILL_ID)) return;
+
+    const nextUrl = getNextEpisodeUrl();
+
+    const wrap = document.createElement("div");
+    wrap.id = AUTOPLAY_PILL_ID;
+    wrap.className = "apw-autoplay-wrap";
+
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "apw-autoplay-pill";
+    pill.innerHTML = `<span class="apw-autoplay-switch"></span><span class="apw-autoplay-label">Auto-play next</span>`;
+
+    if (!nextUrl) {
+        pill.disabled = true;
+        pill.title = "No next episode available";
+    }
+
+    const applyState = enabled => {
+        pill.classList.toggle("apw-autoplay-off", !enabled);
+        pill.setAttribute("aria-pressed", String(enabled));
+    };
+    applyState(settings.autoPlayNext !== false);
+
+    pill.addEventListener("click", async () => {
+        if (pill.disabled) return;
+        const current = await getSettings();
+        const next = current.autoPlayNext === false ? true : false;
+        await saveSettings({ autoPlayNext: next });
+        applyState(next);
+    });
+
+    wrap.appendChild(pill);
+    theatreSettings.parentNode.insertBefore(wrap, theatreSettings);
+}
+
+function removeAutoPlayPill() {
+    document.getElementById(AUTOPLAY_PILL_ID)?.remove();
+}
+
+window.addEventListener("message", async event => {
+    if (event.data?.source !== "apw-player" || event.data?.type !== "videoEnded") return;
+    if (!isPlayPage) return;
+
+    const settings = await getSettings();
+    if (settings.autoPlayNext === false) return;
+    if (settings.showAutoPlayPill === false) return;
+
+    const nextUrl = getNextEpisodeUrl();
+    if (!nextUrl) return;
+
+    window.location.href = nextUrl;
+});
+
 // ---------- Run ----------
 if (isPlayPage) {
     getSettings().then(settings => {
@@ -2137,6 +2281,10 @@ if (isPlayPage) {
         }
     });
     checkAutoOpenFlag();
+    injectPlayPageStyles();
+    injectAutoPlayPill();
+    const playPageObserver = new MutationObserver(() => injectAutoPlayPill());
+    playPageObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 if (isHomePage) {
