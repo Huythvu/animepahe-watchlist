@@ -4,11 +4,6 @@ import { db } from "./firebase-config.js";
 const STORAGE_KEY = "recently_watched";
 const SYNC_KEY = "apw_sync_key";
 const DEVICE_ID_KEY = "apw_device_id";
-const UPDATE_CACHE_KEY = "apw_update_cache";
-const UPDATE_DISMISSED_KEY = "apw_update_dismissed";
-const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-export const CHROME_STORE_URL = "https://chromewebstore.google.com/detail/animepahe-watchlist/odjdaicmhdmedknfhlimhbgpdnecihbc";
 
 const SYNC_WORDS = [
     "mango", "tiger", "cloud", "ramen", "orbit",
@@ -255,59 +250,6 @@ function mergeWatchlists(localItems, cloudItems) {
         })
         .slice(0, 200);
 
-}
-
-function compareVersions(a, b) {
-    const pa = String(a).split(".").map(n => parseInt(n, 10) || 0);
-    const pb = String(b).split(".").map(n => parseInt(n, 10) || 0);
-    const len = Math.max(pa.length, pb.length);
-    for (let i = 0; i < len; i++) {
-        const da = pa[i] || 0;
-        const db = pb[i] || 0;
-        if (da !== db) return da - db;
-    }
-    return 0;
-}
-
-export async function checkForUpdate({ force = false } = {}) {
-    const current = chrome.runtime.getManifest().version;
-    const cached = await chrome.storage.local.get([UPDATE_CACHE_KEY]);
-    const cache = cached[UPDATE_CACHE_KEY];
-
-    let info = cache;
-    const stale = !cache || (Date.now() - (cache.checkedAt || 0)) > UPDATE_CHECK_INTERVAL_MS;
-
-    if (force || stale) {
-        try {
-            const snap = await getDoc(doc(db, "meta", "version"));
-            if (snap.exists()) {
-                const data = snap.data();
-                info = {
-                    latest: String(data.latest || ""),
-                    notes: String(data.notes || ""),
-                    critical: data.critical === true,
-                    checkedAt: Date.now()
-                };
-                await chrome.storage.local.set({ [UPDATE_CACHE_KEY]: info });
-            }
-        } catch (err) {
-            console.warn("[APW] Update check failed:", err);
-        }
-    }
-
-    if (!info || !info.latest) return { available: false, current };
-
-    const available = compareVersions(info.latest, current) > 0;
-    return { available, current, latest: info.latest, notes: info.notes, critical: info.critical };
-}
-
-export async function dismissUpdate(version) {
-    await chrome.storage.local.set({ [UPDATE_DISMISSED_KEY]: String(version) });
-}
-
-export async function isUpdateDismissed(version) {
-    const data = await chrome.storage.local.get([UPDATE_DISMISSED_KEY]);
-    return data[UPDATE_DISMISSED_KEY] === String(version);
 }
 
 function sanitizeItems(items) {
