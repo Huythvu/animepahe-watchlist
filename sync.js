@@ -1,8 +1,9 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, increment } from "firebase/firestore";
 import { db } from "./firebase-config.js";
 
 const STORAGE_KEY = "recently_watched";
 const SYNC_KEY = "apw_sync_key";
+const DEVICE_ID_KEY = "apw_device_id";
 
 const SYNC_WORDS = [
     "mango", "tiger", "cloud", "ramen", "orbit",
@@ -77,6 +78,29 @@ export async function saveLocalSyncKey(syncKey) {
     });
 }
 
+async function getDeviceId() {
+    const data = await chrome.storage.local.get([DEVICE_ID_KEY]);
+    if (data[DEVICE_ID_KEY]) return data[DEVICE_ID_KEY];
+    const id = crypto.randomUUID();
+    await chrome.storage.local.set({ [DEVICE_ID_KEY]: id });
+    return id;
+}
+
+async function buildMetadata() {
+    let platformOs = "unknown";
+    try {
+        const platform = await chrome.runtime.getPlatformInfo();
+        platformOs = platform.os || "unknown";
+    } catch {}
+
+    return {
+        lastDevicePlatform: platformOs,
+        extensionVersion: chrome.runtime.getManifest().version,
+        deviceId: await getDeviceId(),
+        syncCount: increment(1)
+    };
+}
+
 export async function uploadWatchlist(syncKey) {
     const docId = await syncKeyToDocumentId(syncKey);
 
@@ -84,10 +108,19 @@ export async function uploadWatchlist(syncKey) {
     const items = data[STORAGE_KEY] || [];
     const safeItems = sanitizeItems(items);
 
-    await setDoc(doc(db, "watchlists", docId), {
-        updatedAt: Date.now(),
-        items: safeItems
-    });
+    const docRef = doc(db, "watchlists", docId);
+    const snap = await getDoc(docRef);
+    const existingCreatedAt = snap.exists() ? snap.data().createdAt : null;
+    const metadata = await buildMetadata();
+
+    const writeData = {
+        items: safeItems,
+        updatedAt: Timestamp.now(),
+        ...metadata
+    };
+    if (!existingCreatedAt) writeData.createdAt = Timestamp.now();
+
+    await setDoc(docRef, writeData, { merge: true });
 
     return safeItems.length;
 }
@@ -121,13 +154,15 @@ export async function syncWatchlist(syncKey) {
     const localData = await chrome.storage.local.get([STORAGE_KEY]);
     const localItems = localData[STORAGE_KEY] || [];
 
-    const snap = await getDoc(doc(db, "watchlists", docId));
+    const docRef = doc(db, "watchlists", docId);
+    const snap = await getDoc(docRef);
 
     if (!snap.exists()) {
         throw new Error("No watchlist found for this phrase. Use Generate to create one.");
     }
 
     const cloudItems = Array.isArray(snap.data().items) ? snap.data().items : [];
+    const existingCreatedAt = snap.data().createdAt || null;
 
     const mergedItems = mergeWatchlists(localItems, cloudItems);
 
@@ -135,10 +170,16 @@ export async function syncWatchlist(syncKey) {
         [STORAGE_KEY]: mergedItems
     });
 
-    await setDoc(doc(db, "watchlists", docId), {
-        updatedAt: Date.now(),
-        items: sanitizeItems(mergedItems)
-    });
+    const metadata = await buildMetadata();
+
+    const writeData = {
+        items: sanitizeItems(mergedItems),
+        updatedAt: Timestamp.now(),
+        ...metadata
+    };
+    if (!existingCreatedAt) writeData.createdAt = Timestamp.now();
+
+    await setDoc(docRef, writeData, { merge: true });
 
     return mergedItems.length;
 }
