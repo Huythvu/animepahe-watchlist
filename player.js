@@ -15,25 +15,47 @@ function postToParent(payload) {
     } catch {}
 }
 
+function getFullscreenTarget(video) {
+    // Wrap the video's parent in our own container so the overlay can be a
+    // sibling of (not a descendant of) the player's fading wrapper.
+    const original = video.parentElement;
+    if (!original) return null;
+
+    let host = document.getElementById("apw-fs-host");
+    if (host && host.contains(video)) return host;
+
+    host = document.createElement("div");
+    host.id = "apw-fs-host";
+    host.style.cssText = `
+        position: relative;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background: #000;
+    `;
+    original.parentNode.insertBefore(host, original);
+    host.appendChild(original);
+    return host;
+}
+
 function patchFullscreen(video) {
-    const wrapper = video.parentElement;
-    if (!wrapper) return;
+    const host = getFullscreenTarget(video);
+    if (!host) return;
 
     if (typeof video.requestFullscreen === "function") {
         video.requestFullscreen = function(opts) {
-            return wrapper.requestFullscreen
-                ? wrapper.requestFullscreen(opts)
-                : HTMLElement.prototype.requestFullscreen.call(wrapper, opts);
+            return host.requestFullscreen(opts);
         };
     }
     if (typeof video.webkitRequestFullscreen === "function") {
         video.webkitRequestFullscreen = function() {
-            return wrapper.webkitRequestFullscreen?.();
+            return host.webkitRequestFullscreen?.();
         };
     }
     if (typeof video.webkitEnterFullscreen === "function") {
         video.webkitEnterFullscreen = function() {
-            return wrapper.webkitRequestFullscreen?.() || wrapper.requestFullscreen?.();
+            return host.webkitRequestFullscreen?.() || host.requestFullscreen?.();
         };
     }
 }
