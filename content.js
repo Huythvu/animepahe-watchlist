@@ -327,9 +327,10 @@ async function getAniListInfoForEntry(entry) {
     if (!anilistId) return null;
 
     const cached = airingCache[anilistId];
+    const cacheHasTotal = cached && Object.prototype.hasOwnProperty.call(cached, "totalEpisodes");
 
-    if (cached && now - cached.ts < ANILIST_AIRING_TTL_MS) {
-        return { airingAt: cached.airingAt ? cached.airingAt * 1000 : null, totalEpisodes: cached.totalEpisodes ?? null };
+    if (cached && cacheHasTotal && now - cached.ts < ANILIST_AIRING_TTL_MS) {
+        return { airingAt: cached.airingAt ? cached.airingAt * 1000 : null, totalEpisodes: cached.totalEpisodes };
     }
 
     try {
@@ -1776,12 +1777,14 @@ async function buildPanel() {
                 <label class="apw-toggle"><span>Show airing countdowns</span><input type="checkbox" data-setting="showCountdowns"></label>
                 <label class="apw-toggle"><span>Show new episode badges</span><input type="checkbox" data-setting="showNewEpisodeBadges"></label>
                 <label class="apw-toggle"><span>Show episode number</span><input type="checkbox" data-setting="showEpisodeNumber"></label>
-                <label class="apw-toggle"><span>Show progress text</span><input type="checkbox" data-setting="showProgress"></label>
-                <div class="apw-alignment-row apw-progress-mode-row">
-                    <span class="apw-align-label">Progress format</span>
-                    <div class="apw-align-btns">
-                        <button class="apw-align-btn" data-progress-mode="current" title="e.g. Watched 9 of 9">Current eps</button>
-                        <button class="apw-align-btn" data-progress-mode="total" title="e.g. Watched 9 of 13">Total eps</button>
+                <div class="apw-combo-group">
+                    <label class="apw-toggle apw-combo-toggle"><span>Show progress episodes</span><input type="checkbox" data-setting="showProgress"></label>
+                    <div class="apw-alignment-row apw-combo-sub apw-progress-mode-row">
+                        <span class="apw-align-label">Format</span>
+                        <div class="apw-align-btns">
+                            <button class="apw-align-btn" data-progress-mode="current" title="e.g. Watched 9 of 9">Current eps</button>
+                            <button class="apw-align-btn" data-progress-mode="total" title="e.g. Watched 9 of 13">Total eps</button>
+                        </div>
                     </div>
                 </div>
                 <label class="apw-toggle"><span>Show last watched time</span><input type="checkbox" data-setting="showLastWatched"></label>
@@ -1850,7 +1853,7 @@ async function buildPanel() {
     const progressModeRow = wrap.querySelector(".apw-progress-mode-row");
     const syncProgressModeVisibility = () => {
         const showProgressInput = wrap.querySelector("input[data-setting='showProgress']");
-        if (progressModeRow) progressModeRow.style.opacity = showProgressInput?.checked ? "1" : "0.4";
+        if (progressModeRow) progressModeRow.classList.toggle("apw-combo-disabled", !showProgressInput?.checked);
     };
     syncProgressModeVisibility();
 
