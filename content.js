@@ -1865,7 +1865,6 @@ async function buildPanel() {
         const showProgressInput = wrap.querySelector("input[data-setting='showProgress']");
         if (progressModeRow) progressModeRow.classList.toggle("apw-combo-disabled", !showProgressInput?.checked);
     };
-    syncProgressModeVisibility();
 
     wrap.querySelectorAll(".apw-toggle input").forEach(input => {
         const key = input.dataset.setting;
@@ -1881,6 +1880,8 @@ async function buildPanel() {
             }
         });
     });
+
+    syncProgressModeVisibility();
 
     wrap.querySelector(".apw-panel-close").addEventListener("click", closePanel);
 
