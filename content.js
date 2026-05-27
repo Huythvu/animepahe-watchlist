@@ -2143,10 +2143,13 @@ function injectPlayPageStyles() {
     const style = document.createElement("style");
     style.id = PLAY_PAGE_STYLES_ID;
     style.textContent = `
+        .theatre .player { position: relative; }
         .apw-autoplay-wrap {
-            display: flex;
-            justify-content: flex-end;
-            padding: 10px 0 12px;
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            z-index: 10;
+            pointer-events: auto;
         }
         .apw-autoplay-pill {
             display: inline-flex;
@@ -2217,8 +2220,7 @@ async function injectAutoPlayPill() {
     if (settings.showAutoPlayPill === false) return;
 
     const player = document.querySelector(".theatre .player");
-    const theatreSettings = document.querySelector(".theatre .theatre-settings");
-    if (!player || !theatreSettings) return;
+    if (!player) return;
     if (document.getElementById(AUTOPLAY_PILL_ID)) return;
 
     const nextUrl = getNextEpisodeUrl();
@@ -2252,7 +2254,7 @@ async function injectAutoPlayPill() {
     });
 
     wrap.appendChild(pill);
-    theatreSettings.parentNode.insertBefore(wrap, theatreSettings);
+    player.appendChild(wrap);
 }
 
 function removeAutoPlayPill() {
