@@ -2012,11 +2012,13 @@ async function updateProgressText(card) {
         return;
     }
 
-    const useTotalMode = settings.progressMode === "total" && !isNaN(totalEp);
-    const denominator = useTotalMode ? totalEp : latestEp;
+    const totalMode = settings.progressMode === "total";
+    const denominator = totalMode
+        ? (isNaN(totalEp) ? "?" : cleanEpisode(totalEp))
+        : cleanEpisode(latestEp);
 
-    if (latestEp > watchedEp || (latestEp === watchedEp && hasAiring)) {
-        progress.textContent = `Watched ${cleanEpisode(watchedEp)} of ${cleanEpisode(denominator)}`;
+    if (latestEp > watchedEp || (latestEp === watchedEp && hasAiring) || (totalMode && (isNaN(totalEp) || totalEp > watchedEp))) {
+        progress.textContent = `Watched ${cleanEpisode(watchedEp)} of ${denominator}`;
         return;
     }
 
