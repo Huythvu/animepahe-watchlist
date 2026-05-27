@@ -3,10 +3,9 @@
 ## v1.4.0 — Settings panel
 
 - Widget customization settings moved out of the popup into a dedicated side panel that slides in over AnimePahe
-- New gear icon on the watchlist widget header opens the panel
-- Floating gear button on play pages opens the panel while watching
-- "Open settings" button in the popup opens the panel on the active AnimePahe tab, or opens AnimePahe first when used elsewhere
-- Popup is now focused on stats, sync, and the widget enable toggle
+- New settings pill next to the Currently Watching / Plan to Watch tabs opens the panel, styled to match the existing tab pills
+- "Settings ↗" pill in the popup opens the panel on the active AnimePahe tab, or opens AnimePahe first when used elsewhere
+- Popup header reorganized: AnimePahe, Settings, and the widget enable toggle sit in a single row below the title
 - Panel uses Shadow DOM so its styling is fully isolated from AnimePahe
 
 ## v1.3.0 — Duplicate fix
