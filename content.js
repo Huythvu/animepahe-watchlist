@@ -2136,7 +2136,64 @@ async function checkAutoOpenFlag() {
 
 // ---------- Auto-play next episode (play page only) ----------
 const AUTOPLAY_PILL_ID = "apw-autoplay-pill";
+const AUTOPLAY_COUNTDOWN_ID = "apw-autoplay-countdown";
+const AUTOPLAY_COUNTDOWN_SECONDS = 5;
 const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
+
+let autoplayCountdownTimer = null;
+
+function dismissAutoplayCountdown() {
+    if (autoplayCountdownTimer) {
+        clearInterval(autoplayCountdownTimer);
+        autoplayCountdownTimer = null;
+    }
+    document.getElementById(AUTOPLAY_COUNTDOWN_ID)?.remove();
+}
+
+function showAutoplayCountdown(nextUrl) {
+    dismissAutoplayCountdown();
+
+    const player = document.querySelector(".theatre .player");
+    if (!player) {
+        window.location.href = nextUrl;
+        return;
+    }
+
+    const card = document.createElement("div");
+    card.id = AUTOPLAY_COUNTDOWN_ID;
+    card.className = "apw-autoplay-countdown";
+    card.innerHTML = `
+        <div class="apw-countdown-text">Next episode in <strong class="apw-countdown-num">${AUTOPLAY_COUNTDOWN_SECONDS}</strong>s</div>
+        <div class="apw-countdown-actions">
+            <button type="button" class="apw-countdown-cancel">Cancel</button>
+            <button type="button" class="apw-countdown-play">Play now</button>
+        </div>
+        <div class="apw-countdown-bar"><div class="apw-countdown-bar-fill"></div></div>
+    `;
+
+    const numEl = card.querySelector(".apw-countdown-num");
+    const fillEl = card.querySelector(".apw-countdown-bar-fill");
+    card.querySelector(".apw-countdown-cancel").addEventListener("click", dismissAutoplayCountdown);
+    card.querySelector(".apw-countdown-play").addEventListener("click", () => {
+        dismissAutoplayCountdown();
+        window.location.href = nextUrl;
+    });
+
+    player.appendChild(card);
+
+    requestAnimationFrame(() => { fillEl.style.width = "0%"; });
+
+    let remaining = AUTOPLAY_COUNTDOWN_SECONDS;
+    autoplayCountdownTimer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+            dismissAutoplayCountdown();
+            window.location.href = nextUrl;
+            return;
+        }
+        numEl.textContent = String(remaining);
+    }, 1000);
+}
 
 function injectPlayPageStyles() {
     if (document.getElementById(PLAY_PAGE_STYLES_ID)) return;
@@ -2200,6 +2257,77 @@ function injectPlayPageStyles() {
             left: 1px;
             background: rgba(255,255,255,0.55);
         }
+        .apw-autoplay-countdown {
+            position: absolute;
+            right: 16px;
+            bottom: 50px;
+            z-index: 11;
+            min-width: 240px;
+            padding: 12px 14px 10px;
+            background: rgba(15, 15, 20, 0.94);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            animation: apw-countdown-in 0.2s ease;
+        }
+        @keyframes apw-countdown-in {
+            from { transform: translateY(8px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .apw-countdown-text {
+            margin-bottom: 10px;
+            color: rgba(255,255,255,0.85);
+        }
+        .apw-countdown-num {
+            color: #9cccff;
+            font-weight: 700;
+            font-size: 15px;
+            margin: 0 2px;
+        }
+        .apw-countdown-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+        .apw-countdown-actions button {
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .apw-countdown-cancel {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+            border-color: rgba(255,255,255,0.12);
+        }
+        .apw-countdown-cancel:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+        .apw-countdown-play {
+            background: #4f8cff;
+            color: #fff;
+        }
+        .apw-countdown-play:hover { background: #5a96ff; }
+        .apw-countdown-bar {
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .apw-countdown-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #4f8cff, #9cccff);
+            transition: width ${AUTOPLAY_COUNTDOWN_SECONDS}s linear;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -2251,6 +2379,7 @@ async function injectAutoPlayPill() {
         const next = current.autoPlayNext === false ? true : false;
         await saveSettings({ autoPlayNext: next });
         applyState(next);
+        if (!next) dismissAutoplayCountdown();
     });
 
     wrap.appendChild(pill);
@@ -2272,7 +2401,7 @@ window.addEventListener("message", async event => {
     const nextUrl = getNextEpisodeUrl();
     if (!nextUrl) return;
 
-    window.location.href = nextUrl;
+    showAutoplayCountdown(nextUrl);
 });
 
 // ---------- Run ----------
