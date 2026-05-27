@@ -2,9 +2,14 @@
 
 ## v1.5.0 — Player features
 
-- Auto-play next episode: when the current episode ends, a countdown card appears at the bottom-right of the player and navigates to the next episode after 5 seconds
-- Cancel and Play now buttons on the countdown card to opt out or skip the wait
+- Auto-play next episode: a countdown card appears in the last 10 seconds of the video and navigates to the next episode when it hits zero
+- Countdown tracks the video — scrubbing back out of the last 10s hides it, scrubbing back in shows it again with the correct remaining time, and pausing freezes it
+- Cancel button on the countdown card opts out for the current episode
 - Auto-play toggle pill sits in the bottom-right of the player so it can be flipped on or off without leaving the page
+- Pill width mirrors the video player's width via ResizeObserver, so it stays right-aligned with the player at any viewport size
+- Pill is visible immediately, even before the video has loaded
+- Next episode starts playing automatically after auto-navigation (no manual click required)
+- Countdown stays visible in fullscreen, independent of the player's idle-fade
 - Panel option to hide the auto-play pill entirely if you never want it
 - Resume from last position and Skip intro / outro (AniSkip) are listed in the Player section as upcoming
 
