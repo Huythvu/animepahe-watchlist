@@ -2343,7 +2343,7 @@ function tryAutoPlayInIframe(attempts = 0) {
         sendAutoPlayToIframe();
     }
 
-    if (attempts < 60) {
+    if (attempts < 20) {
         setTimeout(() => tryAutoPlayInIframe(attempts + 1), 300);
     } else {
         autoPlayPending = false;
