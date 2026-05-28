@@ -224,6 +224,17 @@ function removeOverlay() {
 function onFullscreenChange() {
     const overlay = document.getElementById(COUNTDOWN_OVERLAY_ID);
     if (overlay) applyFullscreenPlacement(overlay);
+    postToParent({ type: "fullscreenState", isFullscreen: !!getFullscreenElement() });
+}
+
+function requestHostFullscreen() {
+    const host = document.getElementById("apw-fs-host");
+    if (!host) return;
+    const req = host.requestFullscreen || host.webkitRequestFullscreen;
+    try {
+        const p = req?.call(host);
+        if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch {}
 }
 
 function showCountdownOverlay() {
@@ -309,8 +320,13 @@ window.addEventListener("message", event => {
         removeOverlay();
     } else if (event.data?.type === "autoPlay") {
         tryPlay();
+    } else if (event.data?.type === "enterFullscreen") {
+        requestHostFullscreen();
     }
 });
+
+document.addEventListener("fullscreenchange", onFullscreenChange);
+document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
 scanForVideo();
 
