@@ -107,7 +107,11 @@ function attachToVideo(video) {
 
 function scanForVideo() {
     const video = document.querySelector("video");
-    if (video) attachToVideo(video);
+    if (video) {
+        const wasBound = video.dataset.apwBound === "1";
+        attachToVideo(video);
+        if (!wasBound) postToParent({ type: "playerReady" });
+    }
 }
 
 function injectStyles() {
@@ -266,18 +270,36 @@ function updateCountdown(remaining) {
 }
 
 function tryPlay(tries = 0) {
-    // Click any play overlay kwik renders before the video starts.
-    const overlay = document.querySelector(
-        ".play-button, .vjs-big-play-button, [class*='play'][class*='btn'], [class*='play'][class*='button']"
-    );
-    if (overlay) overlay.click();
-
     const video = document.querySelector("video");
-    if (video) {
-        video.play().catch(() => {});
-        return;
+
+    if (video && !video.paused && video.currentTime > 0) return;
+
+    // Click any visible play overlay kwik renders before the video starts.
+    const playSelectors = [
+        ".plyr__control--overlaid",
+        '[data-plyr="play"]',
+        ".vjs-big-play-button",
+        ".jw-icon-playback",
+        ".play-button",
+        ".play-btn"
+    ];
+    for (const sel of playSelectors) {
+        const btn = document.querySelector(sel);
+        if (btn) { btn.click(); break; }
     }
-    if (tries < 30) setTimeout(() => tryPlay(tries + 1), 500);
+
+    if (video) {
+        const p = video.play();
+        if (p && typeof p.catch === "function") {
+            p.catch(() => {
+                // Fall back to muted autoplay (browser always allows muted).
+                video.muted = true;
+                video.play().catch(() => {});
+            });
+        }
+    }
+
+    if (tries < 40) setTimeout(() => tryPlay(tries + 1), 400);
 }
 
 window.addEventListener("message", event => {
