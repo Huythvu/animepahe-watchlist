@@ -266,6 +266,12 @@ function updateCountdown(remaining) {
 }
 
 function tryPlay(tries = 0) {
+    // Click any play overlay kwik renders before the video starts.
+    const overlay = document.querySelector(
+        ".play-button, .vjs-big-play-button, [class*='play'][class*='btn'], [class*='play'][class*='button']"
+    );
+    if (overlay) overlay.click();
+
     const video = document.querySelector("video");
     if (video) {
         video.play().catch(() => {});
