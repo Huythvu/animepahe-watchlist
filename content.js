@@ -2334,7 +2334,10 @@ function sendAutoPlayToIframe() {
 // Once the iframe boots, player.js posts "playerReady" and we send autoPlay.
 function tryAutoPlayInIframe(attempts = 0) {
     if (!autoPlayPending) return;
-    if (getPlayerIframe()?.contentWindow) return;
+
+    const iframe = getPlayerIframe();
+    const loaded = iframe?.src && iframe.src !== "about:blank";
+    if (loaded) return;
 
     document.querySelector(".theatre .click-to-load")?.click();
 
