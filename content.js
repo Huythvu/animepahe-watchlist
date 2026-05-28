@@ -2327,16 +2327,15 @@ function sendAutoPlayToIframe() {
     iframe.contentWindow.postMessage({ source: "apw-host", type: "autoPlay" }, "*");
 }
 
+// Click the AnimePahe "Click to load" overlay until the kwik iframe loads.
+// Once the iframe boots, player.js posts "playerReady" and we send autoPlay.
 function tryAutoPlayInIframe(attempts = 0) {
     if (!autoPlayPending) return;
+    if (getPlayerIframe()?.contentWindow) return;
 
-    // Click the AnimePahe "Click to load" overlay if it's still showing.
-    const clickToLoad = document.querySelector(".theatre .click-to-load");
-    if (clickToLoad) clickToLoad.click();
+    document.querySelector(".theatre .click-to-load")?.click();
 
-    sendAutoPlayToIframe();
-
-    if (attempts < 60) {
+    if (attempts < 30) {
         setTimeout(() => tryAutoPlayInIframe(attempts + 1), 300);
     } else {
         autoPlayPending = false;
@@ -2372,6 +2371,7 @@ window.addEventListener("message", async event => {
     }
 
     if (type === "playerReady" && autoPlayPending) {
+        autoPlayPending = false;
         sendAutoPlayToIframe();
     }
 });

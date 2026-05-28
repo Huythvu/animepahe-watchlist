@@ -269,30 +269,34 @@ function updateCountdown(remaining) {
     }
 }
 
+let autoPlayConsumed = false;
+
+const PLAY_BUTTON_SELECTORS = [
+    ".plyr__control--overlaid",
+    '[data-plyr="play"]',
+    ".vjs-big-play-button",
+    ".jw-icon-playback",
+    ".play-button",
+    ".play-btn"
+];
+
 function tryPlay(tries = 0) {
+    if (autoPlayConsumed) return;
+
     const video = document.querySelector("video");
+    if (video && video.currentTime > 0) {
+        autoPlayConsumed = true;
+        return;
+    }
 
-    if (video && !video.paused && video.currentTime > 0) return;
-
-    // Click any visible play overlay kwik renders before the video starts.
-    const playSelectors = [
-        ".plyr__control--overlaid",
-        '[data-plyr="play"]',
-        ".vjs-big-play-button",
-        ".jw-icon-playback",
-        ".play-button",
-        ".play-btn"
-    ];
-    for (const sel of playSelectors) {
+    for (const sel of PLAY_BUTTON_SELECTORS) {
         const btn = document.querySelector(sel);
         if (btn) { btn.click(); break; }
     }
 
-    if (video) {
-        video.play().catch(() => {});
-    }
+    video?.play().catch(() => {});
 
-    if (tries < 40) setTimeout(() => tryPlay(tries + 1), 400);
+    if (tries < 30) setTimeout(() => tryPlay(tries + 1), 400);
 }
 
 window.addEventListener("message", event => {
