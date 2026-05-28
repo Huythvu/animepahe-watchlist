@@ -2142,6 +2142,7 @@ const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
 const AUTOPLAY_STORAGE_KEY = "apw_autoplay_next";
 
 let pendingNextUrl = null;
+let autoPlayPending = false;
 
 function getPlayerIframe() {
     return document.querySelector(".theatre .player iframe");
@@ -2317,23 +2318,28 @@ function removeAutoPlayPill() {
     if (bar && !bar.children.length) bar.remove();
 }
 
+function sendAutoPlayToIframe() {
+    const iframe = getPlayerIframe();
+    if (!iframe?.contentWindow) return;
+    if (!iframe.allow?.includes("autoplay")) {
+        iframe.allow = (iframe.allow ? iframe.allow + "; " : "") + "autoplay";
+    }
+    iframe.contentWindow.postMessage({ source: "apw-host", type: "autoPlay" }, "*");
+}
+
 function tryAutoPlayInIframe(attempts = 0) {
+    if (!autoPlayPending) return;
+
     // Click the AnimePahe "Click to load" overlay if it's still showing.
     const clickToLoad = document.querySelector(".theatre .click-to-load");
-    if (clickToLoad) {
-        clickToLoad.click();
-    }
+    if (clickToLoad) clickToLoad.click();
 
-    const iframe = getPlayerIframe();
-    if (iframe?.contentWindow) {
-        if (!iframe.allow?.includes("autoplay")) {
-            iframe.allow = (iframe.allow ? iframe.allow + "; " : "") + "autoplay";
-        }
-        iframe.contentWindow.postMessage({ source: "apw-host", type: "autoPlay" }, "*");
-        return;
-    }
-    if (attempts < 40) {
+    sendAutoPlayToIframe();
+
+    if (attempts < 60) {
         setTimeout(() => tryAutoPlayInIframe(attempts + 1), 300);
+    } else {
+        autoPlayPending = false;
     }
 }
 
@@ -2364,6 +2370,10 @@ window.addEventListener("message", async event => {
     if (type === "countdownCancelled") {
         pendingNextUrl = null;
     }
+
+    if (type === "playerReady" && autoPlayPending) {
+        sendAutoPlayToIframe();
+    }
 });
 
 // ---------- Run ----------
@@ -2381,6 +2391,7 @@ if (isPlayPage) {
 
     if (sessionStorage.getItem(AUTOPLAY_STORAGE_KEY)) {
         sessionStorage.removeItem(AUTOPLAY_STORAGE_KEY);
+        autoPlayPending = true;
         tryAutoPlayInIframe();
     }
 }
