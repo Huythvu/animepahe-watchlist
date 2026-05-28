@@ -17,8 +17,6 @@ function postToParent(payload) {
 }
 
 function getFullscreenTarget(video) {
-    // Wrap the video's parent in our own container so the overlay can be a
-    // sibling of (not a descendant of) the player's fading wrapper.
     const original = video.parentElement;
     if (!original) return null;
 
@@ -27,16 +25,26 @@ function getFullscreenTarget(video) {
 
     host = document.createElement("div");
     host.id = "apw-fs-host";
-    host.style.cssText = `
-        position: relative;
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        background: #000;
-    `;
+    // Transparent to layout in normal mode; gets real dimensions only when fullscreened.
+    host.style.cssText = "display: contents;";
     original.parentNode.insertBefore(host, original);
     host.appendChild(original);
+
+    document.addEventListener("fullscreenchange", () => {
+        if (document.fullscreenElement === host || document.webkitFullscreenElement === host) {
+            host.style.cssText = "position: relative; width: 100%; height: 100%; background: #000;";
+        } else {
+            host.style.cssText = "display: contents;";
+        }
+    });
+    document.addEventListener("webkitfullscreenchange", () => {
+        if (document.fullscreenElement === host || document.webkitFullscreenElement === host) {
+            host.style.cssText = "position: relative; width: 100%; height: 100%; background: #000;";
+        } else {
+            host.style.cssText = "display: contents;";
+        }
+    });
+
     return host;
 }
 
@@ -280,7 +288,7 @@ function updateCountdown(remaining) {
     }
 }
 
-let autoPlayConsumed = false;
+let autoPlayLoopActive = false;
 
 const PLAY_BUTTON_SELECTORS = [
     ".plyr__control--overlaid",
@@ -292,11 +300,12 @@ const PLAY_BUTTON_SELECTORS = [
 ];
 
 function tryPlay(tries = 0) {
-    if (autoPlayConsumed) return;
+    // Only allow one loop at a time; bail once playback has actually started.
+    if (!autoPlayLoopActive) return;
 
     const video = document.querySelector("video");
     if (video && video.currentTime > 0) {
-        autoPlayConsumed = true;
+        autoPlayLoopActive = false;
         return;
     }
 
@@ -310,6 +319,12 @@ function tryPlay(tries = 0) {
     if (tries < 30) setTimeout(() => tryPlay(tries + 1), 400);
 }
 
+function startTryPlay() {
+    if (autoPlayLoopActive) return;
+    autoPlayLoopActive = true;
+    tryPlay();
+}
+
 window.addEventListener("message", event => {
     if (event.data?.source !== "apw-host") return;
     if (event.data?.type === "startCountdown") {
@@ -319,7 +334,7 @@ window.addEventListener("message", event => {
         if (countdownState) countdownState.cancelled = true;
         removeOverlay();
     } else if (event.data?.type === "autoPlay") {
-        tryPlay();
+        startTryPlay();
     } else if (event.data?.type === "enterFullscreen") {
         requestHostFullscreen();
     }
