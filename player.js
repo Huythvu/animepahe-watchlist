@@ -289,14 +289,7 @@ function tryPlay(tries = 0) {
     }
 
     if (video) {
-        const p = video.play();
-        if (p && typeof p.catch === "function") {
-            p.catch(() => {
-                // Fall back to muted autoplay (browser always allows muted).
-                video.muted = true;
-                video.play().catch(() => {});
-            });
-        }
+        video.play().catch(() => {});
     }
 
     if (tries < 40) setTimeout(() => tryPlay(tries + 1), 400);
