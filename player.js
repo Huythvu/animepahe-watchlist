@@ -17,35 +17,9 @@ function postToParent(payload) {
 }
 
 function getFullscreenTarget(video) {
-    const original = video.parentElement;
-    if (!original) return null;
-
-    let host = document.getElementById("apw-fs-host");
-    if (host && host.contains(video)) return host;
-
-    host = document.createElement("div");
-    host.id = "apw-fs-host";
-    // Transparent to layout in normal mode; gets real dimensions only when fullscreened.
-    host.style.cssText = "display: contents;";
-    original.parentNode.insertBefore(host, original);
-    host.appendChild(original);
-
-    document.addEventListener("fullscreenchange", () => {
-        if (document.fullscreenElement === host || document.webkitFullscreenElement === host) {
-            host.style.cssText = "position: relative; width: 100%; height: 100%; background: #000;";
-        } else {
-            host.style.cssText = "display: contents;";
-        }
-    });
-    document.addEventListener("webkitfullscreenchange", () => {
-        if (document.fullscreenElement === host || document.webkitFullscreenElement === host) {
-            host.style.cssText = "position: relative; width: 100%; height: 100%; background: #000;";
-        } else {
-            host.style.cssText = "display: contents;";
-        }
-    });
-
-    return host;
+    // Fullscreen the video's existing parent (kwik's player wrapper) so kwik's
+    // own CSS/JS fullscreen detection keeps working and its controls still show.
+    return video.parentElement || null;
 }
 
 function patchFullscreen(video) {
@@ -131,6 +105,10 @@ function injectStyles() {
             position: fixed;
             right: 20px;
             bottom: 75px;
+            left: auto;
+            top: auto;
+            margin: 0;
+            inset: auto 20px 75px auto;
             z-index: 2147483647;
             display: inline-flex !important;
             align-items: center;
@@ -213,30 +191,23 @@ function getFullscreenElement() {
     return document.fullscreenElement || document.webkitFullscreenElement || null;
 }
 
-function applyFullscreenPlacement(overlay) {
-    const fsEl = getFullscreenElement();
-    overlay.classList.toggle("apw-cd-fullscreen", !!fsEl);
-
-    const targetParent = fsEl || document.body;
-    if (overlay.parentNode !== targetParent) {
-        targetParent.appendChild(overlay);
-    }
-}
-
 function removeOverlay() {
-    document.getElementById(COUNTDOWN_OVERLAY_ID)?.remove();
-    document.removeEventListener("fullscreenchange", onFullscreenChange);
-    document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
+    const overlay = document.getElementById(COUNTDOWN_OVERLAY_ID);
+    if (overlay) {
+        try { overlay.hidePopover?.(); } catch {}
+        overlay.remove();
+    }
 }
 
 function onFullscreenChange() {
     const overlay = document.getElementById(COUNTDOWN_OVERLAY_ID);
-    if (overlay) applyFullscreenPlacement(overlay);
+    if (overlay) overlay.classList.toggle("apw-cd-fullscreen", !!getFullscreenElement());
     postToParent({ type: "fullscreenState", isFullscreen: !!getFullscreenElement() });
 }
 
 function requestHostFullscreen() {
-    const host = document.getElementById("apw-fs-host");
+    const video = activeVideo || document.querySelector("video");
+    const host = video?.parentElement;
     if (!host) return;
     const req = host.requestFullscreen || host.webkitRequestFullscreen;
     try {
@@ -251,6 +222,8 @@ function showCountdownOverlay() {
 
     const overlay = document.createElement("div");
     overlay.id = COUNTDOWN_OVERLAY_ID;
+    overlay.setAttribute("popover", "manual");
+    overlay.classList.toggle("apw-cd-fullscreen", !!getFullscreenElement());
     overlay.innerHTML = `
         <span class="apw-cd-text">Next episode in <span class="apw-cd-num">${NEAR_END_THRESHOLD_SEC}</span>s</span>
         <button type="button" class="apw-cd-cancel" aria-label="Cancel">×</button>
@@ -267,10 +240,7 @@ function showCountdownOverlay() {
     });
 
     document.body.appendChild(overlay);
-    applyFullscreenPlacement(overlay);
-
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+    try { overlay.showPopover?.(); } catch {}
 
     const remaining = getRemaining(activeVideo);
     if (remaining !== null) updateCountdown(remaining);
