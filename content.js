@@ -2330,18 +2330,20 @@ function sendAutoPlayToIframe() {
     iframe.contentWindow.postMessage({ source: "apw-host", type: "autoPlay" }, "*");
 }
 
-// Click the AnimePahe "Click to load" overlay until the kwik iframe loads.
-// Once the iframe boots, player.js posts "playerReady" and we send autoPlay.
+// Drive the two-stage autoplay:
+//   1. Click .click-to-load until the overlay disappears (iframe starts loading).
+//   2. Keep sending autoPlay to the iframe until playerReady clears the flag.
 function tryAutoPlayInIframe(attempts = 0) {
     if (!autoPlayPending) return;
 
-    const iframe = getPlayerIframe();
-    const loaded = iframe?.src && iframe.src !== "about:blank";
-    if (loaded) return;
+    const clickToLoad = document.querySelector(".theatre .click-to-load");
+    if (clickToLoad) {
+        clickToLoad.click();
+    } else {
+        sendAutoPlayToIframe();
+    }
 
-    document.querySelector(".theatre .click-to-load")?.click();
-
-    if (attempts < 30) {
+    if (attempts < 60) {
         setTimeout(() => tryAutoPlayInIframe(attempts + 1), 300);
     } else {
         autoPlayPending = false;
