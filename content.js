@@ -2318,14 +2318,13 @@ function removeAutoPlayPill() {
 }
 
 function tryAutoPlayInIframe(attempts = 0) {
-    // First: if the iframe hasn't loaded yet, click whatever triggers it.
-    const iframe = getPlayerIframe();
-    if (!iframe || !iframe.src) {
-        const trigger = document.querySelector(".theatre .player-toggle, .theatre .player")
-            || document.querySelector(".theatre [data-src], .theatre .embed-responsive");
-        if (trigger) trigger.click();
+    // Click the AnimePahe "Click to load" overlay if it's still showing.
+    const clickToLoad = document.querySelector(".theatre .click-to-load");
+    if (clickToLoad) {
+        clickToLoad.click();
     }
 
+    const iframe = getPlayerIframe();
     if (iframe?.contentWindow) {
         if (!iframe.allow?.includes("autoplay")) {
             iframe.allow = (iframe.allow ? iframe.allow + "; " : "") + "autoplay";
