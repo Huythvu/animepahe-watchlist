@@ -16,29 +16,24 @@ function postToParent(payload) {
     } catch {}
 }
 
-function getFullscreenTarget(video) {
-    // Fullscreen the video's existing parent (kwik's player wrapper) so kwik's
-    // own CSS/JS fullscreen detection keeps working and its controls still show.
-    return video.parentElement || null;
-}
-
 function patchFullscreen(video) {
-    const host = getFullscreenTarget(video);
-    if (!host) return;
+    // Redirect to documentElement so kwik's controls (outside video.parentElement)
+    // are always included in fullscreen.
+    const fsTarget = document.documentElement;
 
     if (typeof video.requestFullscreen === "function") {
         video.requestFullscreen = function(opts) {
-            return host.requestFullscreen(opts);
+            return fsTarget.requestFullscreen(opts);
         };
     }
     if (typeof video.webkitRequestFullscreen === "function") {
         video.webkitRequestFullscreen = function() {
-            return host.webkitRequestFullscreen?.();
+            return fsTarget.webkitRequestFullscreen?.();
         };
     }
     if (typeof video.webkitEnterFullscreen === "function") {
         video.webkitEnterFullscreen = function() {
-            return host.webkitRequestFullscreen?.() || host.requestFullscreen?.();
+            return fsTarget.webkitRequestFullscreen?.() || fsTarget.requestFullscreen?.();
         };
     }
 }
@@ -206,12 +201,10 @@ function onFullscreenChange() {
 }
 
 function requestHostFullscreen() {
-    const video = activeVideo || document.querySelector("video");
-    const host = video?.parentElement;
-    if (!host) return;
-    const req = host.requestFullscreen || host.webkitRequestFullscreen;
+    const fsTarget = document.documentElement;
+    const req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen;
     try {
-        const p = req?.call(host);
+        const p = req?.call(fsTarget);
         if (p && typeof p.catch === "function") p.catch(() => {});
     } catch {}
 }
