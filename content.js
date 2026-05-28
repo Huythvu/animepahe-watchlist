@@ -2140,9 +2140,12 @@ const AUTOPLAY_BAR_ID = "apw-player-bar-outer";
 const AUTOPLAY_COUNTDOWN_SECONDS = 10;
 const PLAY_PAGE_STYLES_ID = "apw-play-page-styles";
 const AUTOPLAY_STORAGE_KEY = "apw_autoplay_next";
+const AUTOPLAY_FS_STORAGE_KEY = "apw_autoplay_fullscreen";
 
 let pendingNextUrl = null;
 let autoPlayPending = false;
+let autoFullscreenPending = false;
+let playerIsFullscreen = false;
 
 function getPlayerIframe() {
     return document.querySelector(".theatre .player iframe");
@@ -2327,16 +2330,15 @@ function sendAutoPlayToIframe() {
     iframe.contentWindow.postMessage({ source: "apw-host", type: "autoPlay" }, "*");
 }
 
+// Click the AnimePahe "Click to load" overlay until the kwik iframe loads.
+// Once the iframe boots, player.js posts "playerReady" and we send autoPlay.
 function tryAutoPlayInIframe(attempts = 0) {
     if (!autoPlayPending) return;
+    if (getPlayerIframe()?.contentWindow) return;
 
-    // Click the AnimePahe "Click to load" overlay if it's still showing.
-    const clickToLoad = document.querySelector(".theatre .click-to-load");
-    if (clickToLoad) clickToLoad.click();
+    document.querySelector(".theatre .click-to-load")?.click();
 
-    sendAutoPlayToIframe();
-
-    if (attempts < 60) {
+    if (attempts < 30) {
         setTimeout(() => tryAutoPlayInIframe(attempts + 1), 300);
     } else {
         autoPlayPending = false;
@@ -2363,7 +2365,13 @@ window.addEventListener("message", async event => {
         const target = pendingNextUrl;
         pendingNextUrl = null;
         sessionStorage.setItem(AUTOPLAY_STORAGE_KEY, "1");
+        if (playerIsFullscreen) sessionStorage.setItem(AUTOPLAY_FS_STORAGE_KEY, "1");
         window.location.href = target;
+        return;
+    }
+
+    if (type === "fullscreenState") {
+        playerIsFullscreen = !!event.data.isFullscreen;
         return;
     }
 
@@ -2371,8 +2379,19 @@ window.addEventListener("message", async event => {
         pendingNextUrl = null;
     }
 
-    if (type === "playerReady" && autoPlayPending) {
-        sendAutoPlayToIframe();
+    if (type === "playerReady") {
+        if (autoPlayPending) {
+            autoPlayPending = false;
+            sendAutoPlayToIframe();
+        }
+        if (autoFullscreenPending) {
+            autoFullscreenPending = false;
+            const iframe = getPlayerIframe();
+            iframe?.contentWindow?.postMessage(
+                { source: "apw-host", type: "enterFullscreen" },
+                "*"
+            );
+        }
     }
 });
 
@@ -2392,6 +2411,10 @@ if (isPlayPage) {
     if (sessionStorage.getItem(AUTOPLAY_STORAGE_KEY)) {
         sessionStorage.removeItem(AUTOPLAY_STORAGE_KEY);
         autoPlayPending = true;
+        if (sessionStorage.getItem(AUTOPLAY_FS_STORAGE_KEY)) {
+            sessionStorage.removeItem(AUTOPLAY_FS_STORAGE_KEY);
+            autoFullscreenPending = true;
+        }
         tryAutoPlayInIframe();
     }
 }

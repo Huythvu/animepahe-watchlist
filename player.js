@@ -224,6 +224,17 @@ function removeOverlay() {
 function onFullscreenChange() {
     const overlay = document.getElementById(COUNTDOWN_OVERLAY_ID);
     if (overlay) applyFullscreenPlacement(overlay);
+    postToParent({ type: "fullscreenState", isFullscreen: !!getFullscreenElement() });
+}
+
+function requestHostFullscreen() {
+    const host = document.getElementById("apw-fs-host");
+    if (!host) return;
+    const req = host.requestFullscreen || host.webkitRequestFullscreen;
+    try {
+        const p = req?.call(host);
+        if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch {}
 }
 
 function showCountdownOverlay() {
@@ -269,30 +280,34 @@ function updateCountdown(remaining) {
     }
 }
 
+let autoPlayConsumed = false;
+
+const PLAY_BUTTON_SELECTORS = [
+    ".plyr__control--overlaid",
+    '[data-plyr="play"]',
+    ".vjs-big-play-button",
+    ".jw-icon-playback",
+    ".play-button",
+    ".play-btn"
+];
+
 function tryPlay(tries = 0) {
+    if (autoPlayConsumed) return;
+
     const video = document.querySelector("video");
+    if (video && video.currentTime > 0) {
+        autoPlayConsumed = true;
+        return;
+    }
 
-    if (video && !video.paused && video.currentTime > 0) return;
-
-    // Click any visible play overlay kwik renders before the video starts.
-    const playSelectors = [
-        ".plyr__control--overlaid",
-        '[data-plyr="play"]',
-        ".vjs-big-play-button",
-        ".jw-icon-playback",
-        ".play-button",
-        ".play-btn"
-    ];
-    for (const sel of playSelectors) {
+    for (const sel of PLAY_BUTTON_SELECTORS) {
         const btn = document.querySelector(sel);
         if (btn) { btn.click(); break; }
     }
 
-    if (video) {
-        video.play().catch(() => {});
-    }
+    video?.play().catch(() => {});
 
-    if (tries < 40) setTimeout(() => tryPlay(tries + 1), 400);
+    if (tries < 30) setTimeout(() => tryPlay(tries + 1), 400);
 }
 
 window.addEventListener("message", event => {
@@ -305,8 +320,13 @@ window.addEventListener("message", event => {
         removeOverlay();
     } else if (event.data?.type === "autoPlay") {
         tryPlay();
+    } else if (event.data?.type === "enterFullscreen") {
+        requestHostFullscreen();
     }
 });
+
+document.addEventListener("fullscreenchange", onFullscreenChange);
+document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
 scanForVideo();
 
