@@ -2251,29 +2251,51 @@ async function getNextEpisodeUrl() {
     const el = getNextEpisodeElement();
     if (!el) return null;
 
-    // Extract the episode number from the dropdown item text (e.g. "5" or "Episode 5")
-    const text = el.textContent.trim();
-    const numMatch = text.match(/(\d+(?:\.\d+)?)/);
-    const epNum = numMatch ? parseFloat(numMatch[1]) : null;
+    // Extract the next episode number from the dropdown item text (e.g. "5").
+    const numMatch = el.textContent.trim().match(/(\d+(?:\.\d+)?)/);
+    const epNum = numMatch ? parseFloat(numMatch[1]) : NaN;
+    if (isNaN(epNum)) return el.href || null;
 
-    // The anime session in the current URL is fresh since we're already on this page.
-    const pathParts = window.location.pathname.split("/");
-    const animeSession = pathParts[2]; // /play/{animeSession}/{epSession}
+    // Primary: resolve via the same search-based path the widget cards use.
+    // This re-derives a fresh anime session every time, so it survives
+    // AnimePahe rotating its session IDs while the episode was playing.
+    const animeLink = document.querySelector('a[href^="/anime/"]');
+    const animeHref = animeLink ? animeLink.getAttribute("href") : null;
+    const titleMatch = (document.title || "").match(/^(.+?) Ep\.\s*\S+\s*::/);
+    const pageTitle = titleMatch ? titleMatch[1].trim() : null;
 
-    if (epNum !== null && animeSession) {
+    let entry = null;
+    if (animeHref) {
+        const list = await getWatched();
+        entry = list.find(item => item.animeUrl === animeHref) || null;
+    }
+
+    if (entry) {
+        // Known watched entry (usually carries animeId for an exact match).
         try {
-            const episodes = await fetchEpisodeList(animeSession, epNum);
-            const epMap = new Map();
-            episodes.forEach(ep => {
-                const n = parseFloat(ep.episode);
-                if (!isNaN(n)) epMap.set(n, ep.session);
-            });
-            const freshEpSession = epMap.get(epNum);
-            if (freshEpSession) return `/play/${animeSession}/${freshEpSession}`;
+            return await resolveFreshUrl({ ...entry, episode: epNum }, "play");
         } catch {}
     }
 
-    // Fallback to the raw href if resolution fails
+    // Secondary: resolve the episode against the current URL's anime session.
+    // Accurate (definitely the right anime) and usually still fresh.
+    const animeSession = window.location.pathname.split("/")[2];
+    if (animeSession) {
+        try {
+            const episodes = await fetchEpisodeList(animeSession, epNum);
+            const ep = episodes.find(e => parseFloat(e.episode) === epNum);
+            if (ep?.session) return `/play/${animeSession}/${ep.session}`;
+        } catch {}
+    }
+
+    // Tertiary: search by the page title (rotation-proof, no watched entry).
+    if (pageTitle) {
+        try {
+            return await resolveFreshUrl({ title: pageTitle, animeUrl: animeHref, episode: epNum }, "play");
+        } catch {}
+    }
+
+    // Last resort: the raw (possibly stale) dropdown href.
     return el.href || null;
 }
 
