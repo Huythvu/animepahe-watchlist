@@ -5,6 +5,23 @@ Update freely.
 
 ---
 
+## Beta versioning convention
+While beta-testing the 1.5.x player features, **bump `manifest.json` version on
+every meaningful change** (1.5.1, 1.5.2, ...). The Settings panel footer shows
+`chrome.runtime.getManifest().version`, so this is how I confirm the loaded build
+is the one I just changed. 1.4.0 = public/stable; 1.5.x = beta on
+`claude/auto-sync-on-refresh-OkxlG`.
+
+## Rotation diagnostic (beta)
+Passive detection in `resolveFreshUrl`: the stored `entry.animeUrl` holds the
+session at save time; if the freshly searched `match.session` differs, the link
+rotated -> `recordRotation(title)` bumps a counter in
+`chrome.storage.local["apw_rotation_log"]` = `{ count, lastTs, lastTitle }`.
+Shown in the Settings panel under **Diagnostics** as "N detected · last <date>".
+Note: the panel builds once per page load, so the count refreshes on next load
+(which is exactly when rotation gets detected anyway — on card click -> navigate).
+To inspect raw: DevTools -> Application -> Storage -> `apw_rotation_log`.
+
 ## The "rotating links" problem (most important thing to remember)
 
 AnimePahe rotates its **session IDs** periodically. URLs look like:
