@@ -2237,15 +2237,44 @@ function injectPlayPageStyles() {
     document.head.appendChild(style);
 }
 
-function getNextEpisodeUrl() {
+function getNextEpisodeElement() {
     const active = document.querySelector(".episode-menu .dropdown-item.active");
     if (!active) return null;
-
     let sibling = active.nextElementSibling;
     while (sibling && !sibling.classList.contains("dropdown-item")) {
         sibling = sibling.nextElementSibling;
     }
-    return sibling?.href || null;
+    return sibling || null;
+}
+
+async function getNextEpisodeUrl() {
+    const el = getNextEpisodeElement();
+    if (!el) return null;
+
+    // Extract the episode number from the dropdown item text (e.g. "5" or "Episode 5")
+    const text = el.textContent.trim();
+    const numMatch = text.match(/(\d+(?:\.\d+)?)/);
+    const epNum = numMatch ? parseFloat(numMatch[1]) : null;
+
+    // The anime session in the current URL is fresh since we're already on this page.
+    const pathParts = window.location.pathname.split("/");
+    const animeSession = pathParts[2]; // /play/{animeSession}/{epSession}
+
+    if (epNum !== null && animeSession) {
+        try {
+            const episodes = await fetchEpisodeList(animeSession, epNum);
+            const epMap = new Map();
+            episodes.forEach(ep => {
+                const n = parseFloat(ep.episode);
+                if (!isNaN(n)) epMap.set(n, ep.session);
+            });
+            const freshEpSession = epMap.get(epNum);
+            if (freshEpSession) return `/play/${animeSession}/${freshEpSession}`;
+        } catch {}
+    }
+
+    // Fallback to the raw href if resolution fails
+    return el.href || null;
 }
 
 async function injectAutoPlayPill() {
@@ -2280,8 +2309,6 @@ async function injectAutoPlayPill() {
         }
     }
 
-    const nextUrl = getNextEpisodeUrl();
-
     const wrap = document.createElement("div");
     wrap.id = AUTOPLAY_PILL_ID;
     wrap.className = "apw-autoplay-wrap";
@@ -2291,7 +2318,7 @@ async function injectAutoPlayPill() {
     pill.className = "apw-autoplay-pill";
     pill.innerHTML = `<span class="apw-autoplay-switch"></span><span class="apw-autoplay-label">Auto-play next</span>`;
 
-    if (!nextUrl) {
+    if (!getNextEpisodeElement()) {
         pill.disabled = true;
         pill.title = "No next episode available";
     }
@@ -2360,7 +2387,7 @@ window.addEventListener("message", async event => {
         const settings = await getSettings();
         if (settings.autoPlayNext === false) return;
         if (settings.showAutoPlayPill === false) return;
-        const nextUrl = getNextEpisodeUrl();
+        const nextUrl = await getNextEpisodeUrl();
         if (!nextUrl) return;
         startCountdownInIframe(nextUrl);
         return;
