@@ -54,6 +54,39 @@ async function saveWatched(list) {
     await storageSet(STORAGE_KEY, list);
 }
 
+// Merges duplicate entries (same animeId or same normalized title).
+// Keeps the most recently updated entry; inherits thumb/animeId from any duplicate that has them.
+function dedupList(list) {
+    const best = new Map();
+
+    for (const item of list) {
+        const key = item.animeId != null
+            ? `id:${item.animeId}`
+            : `t:${(item.title || "").toLowerCase().trim()}`;
+
+        if (!best.has(key)) {
+            best.set(key, { ...item });
+        } else {
+            const cur = best.get(key);
+            const curTs = Math.max(cur.ts || 0, cur.statusTs || 0);
+            const itemTs = Math.max(item.ts || 0, item.statusTs || 0);
+
+            if (itemTs > curTs) {
+                best.set(key, {
+                    ...item,
+                    thumb: item.thumb || cur.thumb,
+                    animeId: item.animeId ?? cur.animeId,
+                });
+            } else {
+                if (!cur.thumb && item.thumb) cur.thumb = item.thumb;
+                if (cur.animeId == null && item.animeId != null) cur.animeId = item.animeId;
+            }
+        }
+    }
+
+    return [...best.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
 async function getPosterCache() {
     return await storageGet(POSTER_CACHE_KEY, {});
 }
@@ -147,7 +180,14 @@ async function saveCurrentEpisode() {
     if (!animeHref) return false;
 
     const existingList = await getWatched();
+    const navAnimeId = sessionStorage.getItem("apw-nav-anime-id");
+    sessionStorage.removeItem("apw-nav-anime-id");
+
     let existingEntry = existingList.find(item => item.animeUrl === animeHref);
+
+    if (!existingEntry && navAnimeId) {
+        existingEntry = existingList.find(item => String(item.animeId) === navAnimeId);
+    }
 
     if (!existingEntry) {
         existingEntry = existingList.find(item => item.title === animeTitle);
@@ -1476,6 +1516,12 @@ async function renderWatchlist() {
 
     let list = await getWatched();
 
+    const deduped = dedupList(list);
+    if (deduped.length !== list.length) {
+        list = deduped;
+        await saveWatched(list);
+    }
+
     const cache = await getPosterCache();
     let mutated = false;
 
@@ -1643,6 +1689,7 @@ async function renderWatchlist() {
 
                 try {
                     const freshUrl = await resolveFreshUrl(entry, type);
+                    if (entry.animeId != null) sessionStorage.setItem("apw-nav-anime-id", String(entry.animeId));
                     window.location.href = freshUrl;
                 } catch (err) {
                     console.error("[APW] URL resolution failed, opening stored URL:", err);
