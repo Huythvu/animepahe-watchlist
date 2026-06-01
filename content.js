@@ -5,6 +5,7 @@ const ANILIST_ID_CACHE_KEY = "apw_anilist_id_cache";
 const ANILIST_AIRING_CACHE_KEY = "apw_anilist_airing_cache";
 const ANILIST_TOTAL_EP_CACHE_KEY = "apw_anilist_total_ep_cache";
 const SETTINGS_KEY = "apw_settings";
+const ROTATION_LOG_KEY = "apw_rotation_log";
 
 const ANILIST_AIRING_TTL_MS = 60 * 60 * 1000;
 const LATEST_EP_CACHE_TTL_MS = 30 * 60 * 1000;
@@ -52,6 +53,20 @@ async function getWatched() {
 
 async function saveWatched(list) {
     await storageSet(STORAGE_KEY, list);
+}
+
+// Beta diagnostic: record when a stored session no longer matches the freshly
+// resolved one (i.e. AnimePahe rotated the link). Cheap passive counter.
+async function getRotationLog() {
+    return await storageGet(ROTATION_LOG_KEY, { count: 0, lastTs: null, lastTitle: null });
+}
+
+async function recordRotation(title) {
+    const log = await getRotationLog();
+    log.count = (log.count || 0) + 1;
+    log.lastTs = Date.now();
+    log.lastTitle = title || null;
+    await storageSet(ROTATION_LOG_KEY, log);
 }
 
 // Merges duplicate entries (same animeId or same normalized title).
@@ -448,6 +463,14 @@ async function resolveFreshUrl(entry, type) {
         cached = { session: match.session, id: match.id, episodes: new Map() };
         resolvedAnimeCache.set(cacheKey, cached);
         resolvedAnimeCache.set(match.id, cached);
+
+        // Rotation detection (beta diagnostic): the stored anime URL holds the
+        // session at save time. If the freshly searched session differs, the
+        // link rotated.
+        const storedSession = entry.animeUrl ? entry.animeUrl.replace(/^\/anime\//, "") : null;
+        if (storedSession && match.session && storedSession !== match.session) {
+            recordRotation(entry.title).catch(() => {});
+        }
 
         if (!entry.animeId) {
             updateEntryAnimeId(entry.animeUrl, match.id).catch(() => {});
@@ -1775,6 +1798,14 @@ function applyPanelSide(side) {
     if (panelHost) panelHost.style.cssText = hostCss(panelOpen);
 }
 
+function formatRotationTime(ts) {
+    if (!ts) return "never";
+    const d = new Date(ts);
+    const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return `${date}, ${time}`;
+}
+
 async function buildPanel() {
     if (panelHost) return;
 
@@ -1800,6 +1831,11 @@ async function buildPanel() {
     const version = chrome.runtime.getManifest().version;
     const settings = await getSettings();
     const alignment = settings.cardAlignment || "center";
+
+    const rotationLog = await getRotationLog();
+    const rotationText = rotationLog.count
+        ? `${rotationLog.count} detected · last ${formatRotationTime(rotationLog.lastTs)}`
+        : "None detected yet";
 
     const wrap = document.createElement("div");
     wrap.className = "apw-panel";
@@ -1856,6 +1892,16 @@ async function buildPanel() {
                 <label class="apw-toggle"><span>Show auto-play next on play page</span><input type="checkbox" data-setting="showAutoPlayPill"></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip) <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
+            </section>
+            <section class="apw-panel-section">
+                <div class="apw-section-header">
+                    <h3 class="apw-section-title">Diagnostics <span class="apw-section-badge">Beta</span></h3>
+                    <p class="apw-section-desc">Tracking whether AnimePahe rotated a saved link.</p>
+                </div>
+                <div class="apw-diag-row">
+                    <span class="apw-diag-label">Link rotations</span>
+                    <span class="apw-diag-value">${rotationText}</span>
+                </div>
             </section>
         </div>
         <footer class="apw-panel-footer">
