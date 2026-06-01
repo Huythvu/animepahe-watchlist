@@ -2237,15 +2237,66 @@ function injectPlayPageStyles() {
     document.head.appendChild(style);
 }
 
-function getNextEpisodeUrl() {
+function getNextEpisodeElement() {
     const active = document.querySelector(".episode-menu .dropdown-item.active");
     if (!active) return null;
-
     let sibling = active.nextElementSibling;
     while (sibling && !sibling.classList.contains("dropdown-item")) {
         sibling = sibling.nextElementSibling;
     }
-    return sibling?.href || null;
+    return sibling || null;
+}
+
+async function getNextEpisodeUrl() {
+    const el = getNextEpisodeElement();
+    if (!el) return null;
+
+    // Extract the next episode number from the dropdown item text (e.g. "5").
+    const numMatch = el.textContent.trim().match(/(\d+(?:\.\d+)?)/);
+    const epNum = numMatch ? parseFloat(numMatch[1]) : NaN;
+    if (isNaN(epNum)) return el.href || null;
+
+    // Primary: resolve via the same search-based path the widget cards use.
+    // This re-derives a fresh anime session every time, so it survives
+    // AnimePahe rotating its session IDs while the episode was playing.
+    const animeLink = document.querySelector('a[href^="/anime/"]');
+    const animeHref = animeLink ? animeLink.getAttribute("href") : null;
+    const titleMatch = (document.title || "").match(/^(.+?) Ep\.\s*\S+\s*::/);
+    const pageTitle = titleMatch ? titleMatch[1].trim() : null;
+
+    let entry = null;
+    if (animeHref) {
+        const list = await getWatched();
+        entry = list.find(item => item.animeUrl === animeHref) || null;
+    }
+
+    if (entry) {
+        // Known watched entry (usually carries animeId for an exact match).
+        try {
+            return await resolveFreshUrl({ ...entry, episode: epNum }, "play");
+        } catch {}
+    }
+
+    // Secondary: resolve the episode against the current URL's anime session.
+    // Accurate (definitely the right anime) and usually still fresh.
+    const animeSession = window.location.pathname.split("/")[2];
+    if (animeSession) {
+        try {
+            const episodes = await fetchEpisodeList(animeSession, epNum);
+            const ep = episodes.find(e => parseFloat(e.episode) === epNum);
+            if (ep?.session) return `/play/${animeSession}/${ep.session}`;
+        } catch {}
+    }
+
+    // Tertiary: search by the page title (rotation-proof, no watched entry).
+    if (pageTitle) {
+        try {
+            return await resolveFreshUrl({ title: pageTitle, animeUrl: animeHref, episode: epNum }, "play");
+        } catch {}
+    }
+
+    // Last resort: the raw (possibly stale) dropdown href.
+    return el.href || null;
 }
 
 async function injectAutoPlayPill() {
@@ -2280,8 +2331,6 @@ async function injectAutoPlayPill() {
         }
     }
 
-    const nextUrl = getNextEpisodeUrl();
-
     const wrap = document.createElement("div");
     wrap.id = AUTOPLAY_PILL_ID;
     wrap.className = "apw-autoplay-wrap";
@@ -2291,7 +2340,7 @@ async function injectAutoPlayPill() {
     pill.className = "apw-autoplay-pill";
     pill.innerHTML = `<span class="apw-autoplay-switch"></span><span class="apw-autoplay-label">Auto-play next</span>`;
 
-    if (!nextUrl) {
+    if (!getNextEpisodeElement()) {
         pill.disabled = true;
         pill.title = "No next episode available";
     }
@@ -2360,7 +2409,7 @@ window.addEventListener("message", async event => {
         const settings = await getSettings();
         if (settings.autoPlayNext === false) return;
         if (settings.showAutoPlayPill === false) return;
-        const nextUrl = getNextEpisodeUrl();
+        const nextUrl = await getNextEpisodeUrl();
         if (!nextUrl) return;
         startCountdownInIframe(nextUrl);
         return;
