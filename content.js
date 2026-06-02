@@ -30,8 +30,8 @@ const DEFAULT_SETTINGS = {
     progressMode: "current",
     showSettingsButton: true,
     panelSide: "right",
-    showAutoPlayPill: true,
-    autoPlayNext: true
+    showAutoPlayPill: false,
+    autoPlayNext: false
 };
 
 let countdownTargets = new Map();
@@ -1889,7 +1889,7 @@ async function buildPanel() {
                     <h3 class="apw-section-title">Player</h3>
                     <p class="apw-section-desc">Controls that appear on AnimePahe video pages.</p>
                 </div>
-                <label class="apw-toggle"><span>Show auto-play next on play page</span><input type="checkbox" data-setting="showAutoPlayPill"></label>
+                <label class="apw-toggle"><span>Show auto-play next on play page <span class="apw-section-badge">Beta</span></span><input type="checkbox" data-setting="showAutoPlayPill"></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip) <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
             </section>
