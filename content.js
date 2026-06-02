@@ -1893,16 +1893,6 @@ async function buildPanel() {
                 <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip) <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
             </section>
-            <section class="apw-panel-section">
-                <div class="apw-section-header">
-                    <h3 class="apw-section-title">Diagnostics <span class="apw-section-badge">Beta</span></h3>
-                    <p class="apw-section-desc">Tracking whether AnimePahe rotated a saved link.</p>
-                </div>
-                <div class="apw-diag-row">
-                    <span class="apw-diag-label">Link rotations</span>
-                    <span class="apw-diag-value">${rotationText}</span>
-                </div>
-            </section>
         </div>
         <footer class="apw-panel-footer">
             <span>v${version}</span>
