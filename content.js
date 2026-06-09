@@ -427,15 +427,60 @@ async function searchAnimepahe(title) {
     return Array.isArray(data?.data) ? data.data : [];
 }
 
-async function fetchEpisodeList(animeSession, episodeNumber) {
-    const page = Math.max(1, Math.ceil(parseFloat(episodeNumber) / 30));
+async function fetchReleasePage(animeSession, page) {
     const res = await fetch(`/api?m=release&id=${encodeURIComponent(animeSession)}&sort=episode_asc&page=${page}`, {
         credentials: "same-origin",
         headers: { "Accept": "application/json" }
     });
     if (!res.ok) throw new Error("Release request failed");
-    const data = await res.json();
-    return Array.isArray(data?.data) ? data.data : [];
+    return await res.json();
+}
+
+// Resolves the play session for a specific episode number within an anime entry.
+// AnimePahe paginates the release list by POSITION (per_page), not by episode
+// number, and later cours use continuous numbering (e.g. a 13-episode cour-3
+// entry lists episodes 25–37). Computing the page from the episode number alone
+// therefore fetches the wrong page for cours. Strategy:
+//   1. Fetch page 1 — most short cours fit entirely here.
+//   2. If not found and there are more pages, jump to the page implied by the
+//      episode's position relative to page 1's first episode.
+//   3. Fall back to a bounded sequential scan of the remaining pages.
+async function findEpisodeSession(animeSession, epNum) {
+    const findIn = list => {
+        const hit = list.find(e => parseFloat(e.episode) === epNum);
+        return hit?.session || null;
+    };
+
+    const first = await fetchReleasePage(animeSession, 1);
+    const firstData = Array.isArray(first?.data) ? first.data : [];
+
+    let session = findIn(firstData);
+    if (session) return session;
+
+    const lastPage = parseInt(first?.last_page, 10) || 1;
+    if (lastPage <= 1 || !firstData.length) return null;
+
+    const perPage = parseInt(first?.per_page, 10) || firstData.length || 30;
+    const firstEp = parseFloat(firstData[0].episode);
+
+    // Position-aware page guess using the entry's actual starting episode.
+    let guess = null;
+    if (!isNaN(firstEp)) {
+        guess = Math.min(lastPage, Math.max(2, Math.ceil((epNum - firstEp + 1) / perPage)));
+        const guessed = await fetchReleasePage(animeSession, guess);
+        session = findIn(Array.isArray(guessed?.data) ? guessed.data : []);
+        if (session) return session;
+    }
+
+    // Safety net: scan any remaining pages (handles gaps from recap/.5 episodes).
+    for (let p = 2; p <= lastPage; p++) {
+        if (p === guess) continue;
+        const pageData = await fetchReleasePage(animeSession, p);
+        session = findIn(Array.isArray(pageData?.data) ? pageData.data : []);
+        if (session) return session;
+    }
+
+    return null;
 }
 
 async function updateEntryAnimeId(animeUrl, animeId) {
@@ -485,11 +530,8 @@ async function resolveFreshUrl(entry, type) {
     if (isNaN(epNum)) throw new Error("Invalid episode number");
 
     if (!cached.episodes.has(epNum)) {
-        const episodes = await fetchEpisodeList(cached.session, epNum);
-        episodes.forEach(ep => {
-            const n = parseFloat(ep.episode);
-            if (!isNaN(n)) cached.episodes.set(n, ep.session);
-        });
+        const epSession = await findEpisodeSession(cached.session, epNum);
+        if (epSession) cached.episodes.set(epNum, epSession);
     }
 
     const epSession = cached.episodes.get(epNum);
@@ -2365,9 +2407,8 @@ async function getNextEpisodeUrl() {
     const animeSession = window.location.pathname.split("/")[2];
     if (animeSession) {
         try {
-            const episodes = await fetchEpisodeList(animeSession, epNum);
-            const ep = episodes.find(e => parseFloat(e.episode) === epNum);
-            if (ep?.session) return `/play/${animeSession}/${ep.session}`;
+            const epSession = await findEpisodeSession(animeSession, epNum);
+            if (epSession) return `/play/${animeSession}/${epSession}`;
         } catch {}
     }
 
