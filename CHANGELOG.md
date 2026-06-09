@@ -11,6 +11,10 @@
 - Auto-play next is off by default and marked beta — enable it in Settings
 - Resume from last position and Skip intro / outro (AniSkip) are listed in the Player section as upcoming
 
+## v1.4.2 — Later-season link fix (hotfix)
+
+- Fixes broken links for later seasons/cours (e.g. episode 31+) where the displayed episode number is cumulative — the resolver now finds the correct episode regardless of how AnimePahe paginates its episode list, instead of guessing the wrong page and falling back to a stale link
+
 ## v1.4.1 — Link rotation & duplicate fixes
 
 - Fixes broken links when navigating to the next episode via auto-play — the episode URL is now resolved fresh at navigation time, so it keeps working after AnimePahe rotates its session IDs

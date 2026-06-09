@@ -43,10 +43,21 @@ search is done live at click/navigation time, the result can't be stale.
 
 ```
 searchAnimepahe(title)  -> /api?m=search&q=...   -> fresh animeSession + animeId
-fetchEpisodeList(sess, epNum) -> /api?m=release&id=...&sort=episode_asc&page=N -> fresh epSession
+findEpisodeSession(sess, epNum) -> /api?m=release&id=...&sort=episode_asc&page=N -> fresh epSession
 ```
 
-`page = ceil(epNum / 30)` because the release API paginates 30 episodes/page.
+### Episode page lookup — DO NOT use `ceil(epNum / 30)` (the 1.4.2 hotfix)
+The release API paginates by **position** (per_page, ~30), NOT by episode number.
+Later cours use **continuous numbering** — a 13-episode cour-3 entry lists
+episodes **25–37**, all on API page 1. The old `page = ceil(epNum / 30)` computed
+page 2 for episode 31 -> empty page -> "Episode not found" -> fell back to the
+stale stored `/play` URL -> looked like a rotation bug but wasn't.
+
+`findEpisodeSession` fixes this: fetch page 1 (most cours fit here), and if not
+found use the entry's actual first episode to compute the position-relative page
+(`ceil((epNum - firstEp + 1) / per_page)`), with a bounded sequential scan of
+remaining pages as a safety net. Proof AnimePahe uses continuous numbering: the
+progress-text offset math in `updateProgressText` (`latestEp - anilistTotal`).
 
 ### Caching note
 `resolvedAnimeCache` (module-level Map) lives only for one page load. Every
