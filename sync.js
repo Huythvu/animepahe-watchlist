@@ -4,6 +4,14 @@ import { db } from "./firebase-config.js";
 const STORAGE_KEY = "recently_watched";
 const SYNC_KEY = "apw_sync_key";
 const DEVICE_ID_KEY = "apw_device_id";
+// content.js caches resolved AniList ids here (animeUrl -> anilistId | null). We fold them into the
+// synced record so other clients (e.g. NyanTV) can match entries by AniList id instead of title.
+const ANILIST_ID_CACHE_KEY = "apw_anilist_id_cache";
+
+async function getAniListIdCache() {
+    const data = await chrome.storage.local.get([ANILIST_ID_CACHE_KEY]);
+    return data[ANILIST_ID_CACHE_KEY] || {};
+}
 
 const SYNC_WORDS = [
     "mango", "tiger", "cloud", "ramen", "orbit",
@@ -115,7 +123,7 @@ export async function uploadWatchlist(syncKey) {
 
     const data = await chrome.storage.local.get([STORAGE_KEY]);
     const items = data[STORAGE_KEY] || [];
-    const safeItems = sanitizeItems(items);
+    const safeItems = sanitizeItems(items, await getAniListIdCache());
 
     const docRef = doc(db, "watchlists", docId);
     const snap = await getDoc(docRef);
@@ -185,7 +193,7 @@ export async function syncWatchlist(syncKey) {
     const metadata = await buildMetadata();
 
     const writeData = {
-        items: sanitizeItems(mergedItems),
+        items: sanitizeItems(mergedItems, await getAniListIdCache()),
         "2_updatedAt": Timestamp.now(),
         ...metadata,
         ...LEGACY_FIELD_CLEANUP
@@ -265,7 +273,7 @@ function mergeWatchlists(localItems, cloudItems) {
 
 }
 
-function sanitizeItems(items) {
+function sanitizeItems(items, anilistIdByUrl = {}) {
     return items
         .slice(0, 200)
         .map(item => {
@@ -280,6 +288,11 @@ function sanitizeItems(items) {
                 statusTs: Number(item.statusTs || item.ts || Date.now())
             };
             if (Number.isInteger(item.animeId)) out.animeId = item.animeId;
+            // Cross-client join key: use the entry's own id, else the cached lookup for its animeUrl.
+            const anilistId = Number.isInteger(item.anilistId)
+                ? item.anilistId
+                : anilistIdByUrl[item.animeUrl];
+            if (Number.isInteger(anilistId) && anilistId > 0) out.anilistId = anilistId;
             return out;
         })
         .filter(item => item.title && item.animeUrl);
