@@ -2160,6 +2160,15 @@ function cleanupBadgeStack(card) {
     }
 }
 
+// Store the AniList-numbering episode on the watchlist entry so it syncs to other clients (NyanTV).
+async function persistAnilistEpisode(animeUrl, anilistEp) {
+    const list = await getWatched();
+    const idx = list.findIndex(item => item.animeUrl === animeUrl);
+    if (idx === -1 || list[idx].anilistEpisode === anilistEp) return;   // missing or unchanged → no write
+    list[idx].anilistEpisode = anilistEp;
+    await saveWatched(list);
+}
+
 async function updateProgressText(card) {
     const progress = card.querySelector(".apw-progress");
     if (!progress) return;
@@ -2190,6 +2199,12 @@ async function updateProgressText(card) {
             offset = Math.max(0, latestEp - anilistTotal);
         }
         apTotal = offset + anilistTotal;
+
+        // Persist the AniList-numbering episode (continuous - offset) so other clients (NyanTV) can
+        // resume at the right episode without AnimePahe's release data.
+        const animeUrl = card.getAttribute("data-anime");
+        const anilistEp = Math.max(1, Math.round(watchedEp - offset));
+        if (animeUrl && Number.isFinite(anilistEp)) persistAnilistEpisode(animeUrl, anilistEp);
     }
 
     const totalMode = settings.progressMode === "total";
