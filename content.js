@@ -1590,6 +1590,24 @@ async function renderWatchlist() {
     const cache = await getPosterCache();
     let mutated = false;
 
+    // Backfill the AnimePahe link for entries pushed from another client (e.g. NyanTV): they carry an
+    // anilistId but no animeUrl. Resolve once via search so they render and behave like native entries.
+    for (const entry of list) {
+        if (entry.animeUrl || !Number.isInteger(entry.anilistId)) continue;
+        try {
+            const results = await searchAnimepahe(entry.title);
+            const match = results[0];
+            if (match && match.session) {
+                entry.animeUrl = `/anime/${match.session}`;
+                if (Number.isInteger(match.id)) entry.animeId = match.id;
+                if (!entry.thumb && match.poster) entry.thumb = match.poster;
+                mutated = true;
+            }
+        } catch (e) {
+            // Couldn't resolve now (search failed / rate limited) — retried on the next render.
+        }
+    }
+
     for (const entry of list) {
         if (!entry.status) {
             entry.status = "watching";

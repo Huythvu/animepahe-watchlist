@@ -239,28 +239,38 @@ function isValidSyncKey(normalized) {
         words.every(word => SYNC_WORDS.includes(word));
 }
 
+// Identity for merging. Prefer the AnimePahe URL (native entries); fall back to the AniList id so
+// entries pushed from another client (e.g. NyanTV) that have no animeUrl yet still merge/dedup.
+function itemKey(item) {
+    if (item.animeUrl) return item.animeUrl;
+    if (Number.isInteger(item.anilistId)) return `al:${item.anilistId}`;
+    return null;
+}
+
 function mergeWatchlists(localItems, cloudItems) {
     const map = new Map();
 
     for (const item of cloudItems || []) {
-        if (!item.animeUrl) continue;
-        map.set(item.animeUrl, item);
+        const key = itemKey(item);
+        if (!key) continue;
+        map.set(key, item);
     }
 
     for (const item of localItems || []) {
-        if (!item.animeUrl) continue;
+        const key = itemKey(item);
+        if (!key) continue;
 
-        const existing = map.get(item.animeUrl);
+        const existing = map.get(key);
 
         if (!existing) {
-            map.set(item.animeUrl, item);
+            map.set(key, item);
             continue;
         }
 
         const localTime = Math.max(item.ts || 0, item.statusTs || 0);
         const cloudTime = Math.max(existing.ts || 0, existing.statusTs || 0);
 
-        map.set(item.animeUrl, localTime >= cloudTime ? item : existing);
+        map.set(key, localTime >= cloudTime ? item : existing);
     }
 
     return Array.from(map.values())
@@ -295,5 +305,7 @@ function sanitizeItems(items, anilistIdByUrl = {}) {
             if (Number.isInteger(anilistId) && anilistId > 0) out.anilistId = anilistId;
             return out;
         })
-        .filter(item => item.title && item.animeUrl);
+        // Keep native entries (have an animeUrl) and cross-client entries (have an AniList id but no
+        // animeUrl yet — the content script backfills the link on demand).
+        .filter(item => item.title && (item.animeUrl || Number.isInteger(item.anilistId)));
 }
