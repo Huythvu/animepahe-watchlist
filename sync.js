@@ -205,6 +205,38 @@ export async function syncWatchlist(syncKey) {
     return mergedItems.length;
 }
 
+// Push local changes to the cloud WITHOUT clobbering cloud-only entries (e.g. watches pushed from
+// NyanTV): pull the cloud doc, merge, and write the union back. Unlike syncWatchlist it does NOT
+// write local storage, so it can be triggered by a local-storage change without looping.
+export async function mergeUpload(syncKey) {
+    const docId = await syncKeyToDocumentId(syncKey);
+
+    const localData = await chrome.storage.local.get([STORAGE_KEY]);
+    const localItems = localData[STORAGE_KEY] || [];
+
+    const docRef = doc(db, "watchlists", docId);
+    const snap = await getDoc(docRef);
+    const cloudItems = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    const existingCreatedAt = snap.exists()
+        ? (snap.data()["1_createdAt"] || snap.data().createdAt)
+        : null;
+
+    const mergedItems = mergeWatchlists(localItems, cloudItems);
+    const metadata = await buildMetadata();
+
+    const writeData = {
+        items: sanitizeItems(mergedItems, await getAniListIdCache()),
+        "2_updatedAt": Timestamp.now(),
+        ...metadata,
+        ...LEGACY_FIELD_CLEANUP
+    };
+    if (!existingCreatedAt) writeData["1_createdAt"] = Timestamp.now();
+
+    await setDoc(docRef, writeData, { merge: true });
+
+    return mergedItems.length;
+}
+
 async function syncKeyToDocumentId(syncKey) {
     const normalized = normalizeSyncKey(syncKey);
 

@@ -1,4 +1,4 @@
-import { getLocalSyncKey, uploadWatchlist, syncWatchlist } from "./sync.js";
+import { getLocalSyncKey, mergeUpload, syncWatchlist } from "./sync.js";
 
 const STORAGE_KEY = "recently_watched";
 
@@ -31,7 +31,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         try {
             const syncKey = await getLocalSyncKey();
             if (!syncKey) return;
-            await uploadWatchlist(syncKey);
+            // Merge cloud in before pushing, so cloud-only entries (e.g. pushed from NyanTV) aren't
+            // overwritten by our local list.
+            await mergeUpload(syncKey);
         } catch (err) {
             console.error("Auto-sync failed:", err);
         }
