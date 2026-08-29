@@ -2085,7 +2085,8 @@ function buildCard(entry, currentFilter = "watching") {
     const thumb = entry.thumb || "";
     const animeUrl = entry.animeUrl || "#";
     const title = escapeHtml(entry.title);
-    const ep = escapeHtml(entry.episode || "");
+    // Native AnimePahe episode wins; fall back to the AniList-numbering episode pushed by NyanTV.
+    const ep = escapeHtml(String(entry.episode || entry.anilistEpisode || ""));
     const animeAttr = escapeHtml(entry.animeUrl || "");
     const playUrl = isPlan ? animeUrl : escapeHtml(entry.playUrl || animeUrl || "#");
 

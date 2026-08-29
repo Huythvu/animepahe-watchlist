@@ -335,6 +335,9 @@ function sanitizeItems(items, anilistIdByUrl = {}) {
                 ? item.anilistId
                 : anilistIdByUrl[item.animeUrl];
             if (Number.isInteger(anilistId) && anilistId > 0) out.anilistId = anilistId;
+            // Episode in AniList-entry numbering, pushed by other clients (NyanTV) — shown when the
+            // entry has no native AnimePahe episode.
+            if (Number.isInteger(item.anilistEpisode) && item.anilistEpisode > 0) out.anilistEpisode = item.anilistEpisode;
             return out;
         })
         // Keep native entries (have an animeUrl) and cross-client entries (have an AniList id but no
