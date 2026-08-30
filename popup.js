@@ -7,6 +7,15 @@ import {
     uploadWatchlist,
     syncWatchlist
 } from "./sync.js";
+import {
+    getRedirectUrl,
+    getClientId,
+    setClientId,
+    isLoggedIn as anilistIsLoggedIn,
+    getProfile as getAnilistProfile,
+    login as anilistLogin,
+    logout as anilistLogout,
+} from "./anilist-auth.js";
 
 const GENERATE_COOLDOWN_KEY = "apw_generate_cooldown";
 const GENERATE_COOLDOWN_MS  = 60 * 1000;
@@ -51,6 +60,23 @@ const syncActive = document.querySelector("#syncActive");
 const phraseWordsEl = document.querySelector("#phraseWords");
 const copyPhraseBtn = document.querySelector("#copyPhrase");
 const disconnectBtn = document.querySelector("#disconnectSync");
+
+// AniList elements
+const anilistLoggedOut = document.querySelector("#anilistLoggedOut");
+const anilistLoggedIn = document.querySelector("#anilistLoggedIn");
+const anilistLoginBtn = document.querySelector("#anilistLogin");
+const anilistSetupToggle = document.querySelector("#anilistSetupToggle");
+const anilistSetup = document.querySelector("#anilistSetup");
+const anilistRedirectEl = document.querySelector("#anilistRedirect");
+const copyRedirectBtn = document.querySelector("#copyRedirect");
+const anilistClientIdInput = document.querySelector("#anilistClientId");
+const anilistSetupError = document.querySelector("#anilistSetupError");
+const anilistSaveClientIdBtn = document.querySelector("#anilistSaveClientId");
+const anilistAvatarEl = document.querySelector("#anilistAvatar");
+const anilistNameEl = document.querySelector("#anilistName");
+const anilistStatsEl = document.querySelector("#anilistStats");
+const anilistLogoutBtn = document.querySelector("#anilistLogout");
+const anilistStatusEl = document.querySelector("#anilistStatus");
 
 let statusTimeout;
 
@@ -146,8 +172,95 @@ async function updatePopup() {
         showIdleState();
     }
 
+    await renderAnilist();
     await updateGenerateCooldown();
 }
+
+// ---------- AniList ----------
+
+let anilistStatusTimeout;
+
+function setAnilistStatus(message) {
+    anilistStatusEl.textContent = message;
+    clearTimeout(anilistStatusTimeout);
+    anilistStatusTimeout = setTimeout(() => { anilistStatusEl.textContent = ""; }, 5000);
+}
+
+async function renderAnilist() {
+    anilistRedirectEl.textContent = getRedirectUrl();
+
+    const clientId = await getClientId();
+    if (clientId && !anilistClientIdInput.value) anilistClientIdInput.value = clientId;
+
+    const loggedIn = await anilistIsLoggedIn();
+    anilistLoggedOut.classList.toggle("hidden", loggedIn);
+    anilistLoggedIn.classList.toggle("hidden", !loggedIn);
+
+    if (loggedIn) {
+        const profile = await getAnilistProfile();
+        if (profile) {
+            anilistAvatarEl.src = profile.avatar || "";
+            anilistNameEl.textContent = profile.name || "AniList user";
+            const parts = [];
+            if (Number.isFinite(profile.animeCount)) parts.push(`${profile.animeCount} anime`);
+            if (Number.isFinite(profile.episodesWatched)) parts.push(`${profile.episodesWatched} eps`);
+            anilistStatsEl.textContent = parts.join(" · ");
+        }
+    }
+}
+
+anilistSetupToggle.addEventListener("click", () => {
+    anilistSetup.classList.toggle("collapsed");
+    anilistSetupError.classList.add("hidden");
+    if (!anilistSetup.classList.contains("collapsed")) anilistClientIdInput.focus();
+});
+
+copyRedirectBtn.addEventListener("click", async () => {
+    try {
+        await navigator.clipboard.writeText(getRedirectUrl());
+        copyRedirectBtn.textContent = "Copied!";
+        setTimeout(() => { copyRedirectBtn.textContent = "Copy"; }, 1500);
+    } catch {
+        setAnilistStatus("Could not copy URL");
+    }
+});
+
+anilistSaveClientIdBtn.addEventListener("click", async () => {
+    anilistSetupError.classList.add("hidden");
+    try {
+        await setClientId(anilistClientIdInput.value);
+        anilistSetup.classList.add("collapsed");
+        setAnilistStatus("Client ID saved. You can log in now.");
+    } catch (err) {
+        anilistSetupError.textContent = err.message || "Invalid Client ID";
+        anilistSetupError.classList.remove("hidden");
+    }
+});
+
+anilistLoginBtn.addEventListener("click", async () => {
+    if (!(await getClientId())) {
+        anilistSetup.classList.remove("collapsed");
+        setAnilistStatus("Set your Client ID first.");
+        return;
+    }
+    setButtonLoading(anilistLoginBtn, true, "Opening AniList...", "Log in with AniList");
+    try {
+        const profile = await anilistLogin();
+        await renderAnilist();
+        setAnilistStatus(`Logged in as ${profile?.name || "AniList user"}.`);
+    } catch (err) {
+        console.error("AniList login failed:", err);
+        setAnilistStatus(err.message || "Login failed");
+    } finally {
+        setButtonLoading(anilistLoginBtn, false, "Opening AniList...", "Log in with AniList");
+    }
+});
+
+anilistLogoutBtn.addEventListener("click", async () => {
+    await anilistLogout();
+    await renderAnilist();
+    setAnilistStatus("Logged out.");
+});
 
 // ---------- Generate cooldown ----------
 

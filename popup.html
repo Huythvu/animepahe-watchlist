@@ -46,6 +46,52 @@
             </p>
         </section>
 
+        <section class="anilist-section">
+            <h2>AniList</h2>
+
+            <div id="anilistLoggedOut">
+                <p class="hint">Log in to track episodes on your AniList account.</p>
+
+                <button id="anilistLogin" class="primary-btn">Log in with AniList</button>
+
+                <button id="anilistSetupToggle" class="secondary-btn">Setup (Client ID)</button>
+
+                <div id="anilistSetup" class="sync-form collapsed">
+                    <p class="hint">
+                        Register a client at
+                        <a href="https://anilist.co/settings/developer" target="_blank">AniList → Developer</a>
+                        with this redirect URL:
+                    </p>
+                    <div class="redirect-row">
+                        <code id="anilistRedirect" class="redirect-url"></code>
+                        <button id="copyRedirect" class="copy-phrase-btn">Copy</button>
+                    </div>
+                    <input
+                        id="anilistClientId"
+                        type="text"
+                        placeholder="Numeric Client ID"
+                        spellcheck="false"
+                        inputmode="numeric"
+                    >
+                    <p id="anilistSetupError" class="error-text hidden"></p>
+                    <button id="anilistSaveClientId" class="primary-btn">Save Client ID</button>
+                </div>
+            </div>
+
+            <div id="anilistLoggedIn" class="hidden">
+                <div class="profile-row">
+                    <img id="anilistAvatar" class="profile-avatar" alt="">
+                    <div class="profile-info">
+                        <strong id="anilistName"></strong>
+                        <span id="anilistStats" class="profile-stats"></span>
+                    </div>
+                </div>
+                <button id="anilistLogout" class="disconnect-btn">Log out</button>
+            </div>
+
+            <p id="anilistStatus" class="status"></p>
+        </section>
+
         <section class="sync-section">
             <h2>Sync</h2>
 

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Animepahe Watchlist",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "Adds a Currently Watching and Plan to Watch list to Animepahe.",
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "identity"],
   "host_permissions": [
     "https://animepahe.pw/*",
     "https://kwik.cx/*",
