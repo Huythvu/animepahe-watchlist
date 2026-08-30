@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Animepahe Watchlist",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Adds a Currently Watching and Plan to Watch list to Animepahe.",
   "permissions": ["storage", "tabs", "identity"],
   "host_permissions": [
     "https://animepahe.pw/*",
     "https://kwik.cx/*",
     "https://graphql.anilist.co/*",
+    "https://myanimelist.net/*",
+    "https://api.myanimelist.net/*",
     "https://firestore.googleapis.com/*"
   ],
   "icons": {

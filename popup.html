@@ -96,6 +96,51 @@
             <p id="anilistStatus" class="status"></p>
         </section>
 
+        <section class="anilist-section">
+            <h2>MyAnimeList</h2>
+
+            <div id="malLoggedOut">
+                <p class="hint">Log in to show your MAL lists as rows.</p>
+
+                <button id="malLogin" class="primary-btn">Log in with MyAnimeList</button>
+
+                <button id="malSetupToggle" class="secondary-btn">Setup (Client ID + Secret)</button>
+
+                <div id="malSetup" class="sync-form collapsed">
+                    <p class="hint">
+                        Create a "Web" app at
+                        <a href="https://myanimelist.net/apps/register" target="_blank">MyAnimeList → API</a>
+                        with this redirect URL:
+                    </p>
+                    <div class="redirect-row">
+                        <code id="malRedirect" class="redirect-url"></code>
+                        <button id="malCopyRedirect" class="copy-phrase-btn">Copy</button>
+                    </div>
+                    <input id="malClientId" type="text" placeholder="Client ID" spellcheck="false">
+                    <input id="malClientSecret" type="text" placeholder="Client Secret" spellcheck="false">
+                    <p id="malSetupError" class="error-text hidden"></p>
+                    <button id="malSaveCreds" class="primary-btn">Save credentials</button>
+                </div>
+            </div>
+
+            <div id="malLoggedIn" class="hidden">
+                <div class="profile-row">
+                    <div class="profile-avatar mal-avatar" id="malInitial"></div>
+                    <div class="profile-info">
+                        <strong id="malName"></strong>
+                        <span id="malStats" class="profile-stats"></span>
+                    </div>
+                </div>
+                <label class="anilist-toggle">
+                    <span>Sync watch progress to MAL</span>
+                    <input type="checkbox" id="malPushToggle">
+                </label>
+                <button id="malLogout" class="disconnect-btn">Log out</button>
+            </div>
+
+            <p id="malStatus" class="status"></p>
+        </section>
+
         <section class="sync-section">
             <h2>Sync</h2>
 

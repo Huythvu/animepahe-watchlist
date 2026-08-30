@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.7.0 — MyAnimeList login
+
+- Log in to MyAnimeList from the extension popup (MyAnimeList section)
+- One-time setup shows the redirect URL to register a MAL API app and takes the Client ID and Client Secret (stored locally only)
+- Uses MAL's OAuth Authorization Code + PKCE flow with token refresh handled automatically
+- Popup shows your MAL profile once signed in (name, watching count, episodes)
+- Groundwork for MAL rows and progress sync (added in a later release)
+
 ## v1.6.0 — AniList account
 
 - Log in to AniList from the extension popup (AniList section) using Chrome's built-in auth flow — no password stored, no server involved

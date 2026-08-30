@@ -16,6 +16,15 @@ import {
     login as anilistLogin,
     logout as anilistLogout,
 } from "./anilist-auth.js";
+import {
+    getClientId as getMalClientId,
+    getClientSecret as getMalClientSecret,
+    setCredentials as setMalCredentials,
+    isLoggedIn as malIsLoggedIn,
+    getProfile as getMalProfile,
+    login as malLogin,
+    logout as malLogout,
+} from "./mal-auth.js";
 
 const GENERATE_COOLDOWN_KEY = "apw_generate_cooldown";
 const GENERATE_COOLDOWN_MS  = 60 * 1000;
@@ -78,6 +87,25 @@ const anilistStatsEl = document.querySelector("#anilistStats");
 const anilistLogoutBtn = document.querySelector("#anilistLogout");
 const anilistPushToggle = document.querySelector("#anilistPushToggle");
 const anilistStatusEl = document.querySelector("#anilistStatus");
+
+// MAL elements
+const malLoggedOut = document.querySelector("#malLoggedOut");
+const malLoggedIn = document.querySelector("#malLoggedIn");
+const malLoginBtn = document.querySelector("#malLogin");
+const malSetupToggle = document.querySelector("#malSetupToggle");
+const malSetup = document.querySelector("#malSetup");
+const malRedirectEl = document.querySelector("#malRedirect");
+const malCopyRedirectBtn = document.querySelector("#malCopyRedirect");
+const malClientIdInput = document.querySelector("#malClientId");
+const malClientSecretInput = document.querySelector("#malClientSecret");
+const malSetupError = document.querySelector("#malSetupError");
+const malSaveCredsBtn = document.querySelector("#malSaveCreds");
+const malInitialEl = document.querySelector("#malInitial");
+const malNameEl = document.querySelector("#malName");
+const malStatsEl = document.querySelector("#malStats");
+const malLogoutBtn = document.querySelector("#malLogout");
+const malPushToggle = document.querySelector("#malPushToggle");
+const malStatusEl = document.querySelector("#malStatus");
 
 let statusTimeout;
 
@@ -174,6 +202,7 @@ async function updatePopup() {
     }
 
     await renderAnilist();
+    await renderMal();
     await updateGenerateCooldown();
 }
 
@@ -268,6 +297,101 @@ anilistLogoutBtn.addEventListener("click", async () => {
     await anilistLogout();
     await renderAnilist();
     setAnilistStatus("Logged out.");
+});
+
+// ---------- MyAnimeList ----------
+
+let malStatusTimeout;
+
+function setMalStatus(message) {
+    malStatusEl.textContent = message;
+    clearTimeout(malStatusTimeout);
+    malStatusTimeout = setTimeout(() => { malStatusEl.textContent = ""; }, 5000);
+}
+
+async function renderMal() {
+    malRedirectEl.textContent = getRedirectUrl();
+
+    const clientId = await getMalClientId();
+    if (clientId && !malClientIdInput.value) malClientIdInput.value = clientId;
+    const clientSecret = await getMalClientSecret();
+    if (clientSecret && !malClientSecretInput.value) malClientSecretInput.value = clientSecret;
+
+    const loggedIn = await malIsLoggedIn();
+    malLoggedOut.classList.toggle("hidden", loggedIn);
+    malLoggedIn.classList.toggle("hidden", !loggedIn);
+
+    if (loggedIn) {
+        const profile = await getMalProfile();
+        if (profile) {
+            malInitialEl.textContent = (profile.name || "M").charAt(0).toUpperCase();
+            malNameEl.textContent = profile.name || "MAL user";
+            const parts = [];
+            if (Number.isFinite(profile.watching)) parts.push(`${profile.watching} watching`);
+            if (Number.isFinite(profile.episodes)) parts.push(`${profile.episodes} eps`);
+            malStatsEl.textContent = parts.join(" · ");
+        }
+        const settings = await getSettings();
+        malPushToggle.checked = settings.pushToMal !== false;
+    }
+}
+
+malSetupToggle.addEventListener("click", () => {
+    malSetup.classList.toggle("collapsed");
+    malSetupError.classList.add("hidden");
+    if (!malSetup.classList.contains("collapsed")) malClientIdInput.focus();
+});
+
+malCopyRedirectBtn.addEventListener("click", async () => {
+    try {
+        await navigator.clipboard.writeText(getRedirectUrl());
+        malCopyRedirectBtn.textContent = "Copied!";
+        setTimeout(() => { malCopyRedirectBtn.textContent = "Copy"; }, 1500);
+    } catch {
+        setMalStatus("Could not copy URL");
+    }
+});
+
+malSaveCredsBtn.addEventListener("click", async () => {
+    malSetupError.classList.add("hidden");
+    try {
+        await setMalCredentials(malClientIdInput.value, malClientSecretInput.value);
+        malSetup.classList.add("collapsed");
+        setMalStatus("Credentials saved. You can log in now.");
+    } catch (err) {
+        malSetupError.textContent = err.message || "Invalid credentials";
+        malSetupError.classList.remove("hidden");
+    }
+});
+
+malLoginBtn.addEventListener("click", async () => {
+    if (!(await getMalClientId()) || !(await getMalClientSecret())) {
+        malSetup.classList.remove("collapsed");
+        setMalStatus("Set your Client ID and Secret first.");
+        return;
+    }
+    setButtonLoading(malLoginBtn, true, "Opening MyAnimeList...", "Log in with MyAnimeList");
+    try {
+        const profile = await malLogin();
+        await renderMal();
+        setMalStatus(`Logged in as ${profile?.name || "MAL user"}.`);
+    } catch (err) {
+        console.error("MAL login failed:", err);
+        setMalStatus(err.message || "Login failed");
+    } finally {
+        setButtonLoading(malLoginBtn, false, "Opening MyAnimeList...", "Log in with MyAnimeList");
+    }
+});
+
+malLogoutBtn.addEventListener("click", async () => {
+    await malLogout();
+    await renderMal();
+    setMalStatus("Logged out.");
+});
+
+malPushToggle.addEventListener("change", async () => {
+    await saveSettings({ pushToMal: malPushToggle.checked });
+    setMalStatus(malPushToggle.checked ? "Progress sync on." : "Progress sync off.");
 });
 
 // ---------- Generate cooldown ----------
