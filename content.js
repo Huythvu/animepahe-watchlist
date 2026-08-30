@@ -50,8 +50,14 @@ const DEFAULT_SETTINGS = {
     panelSide: "right",
     showAutoPlayPill: false,
     autoPlayNext: false,
-    // AniList rows: which of the logged-in user's lists show as widget tabs. Watching + Planning on
-    // by default; the rest opt-in (so the tab strip stays short until the user wants more).
+    // Rows: the widget stacks each enabled list as its own horizontal row. The two native rows are
+    // always available; AniList rows appear when signed in. `rowOrder` is the display order (ids),
+    // filled in from the default order for any row it doesn't mention.
+    rowWatching: true,
+    rowPlan: true,
+    rowOrder: null,
+    // AniList rows: which of the logged-in user's lists show as rows. Watching + Planning on by
+    // default; the rest opt-in (so the widget stays short until the user wants more).
     alRowCURRENT: true,
     alRowPLANNING: true,
     alRowCOMPLETED: false,
@@ -551,23 +557,37 @@ async function fetchAnilistLists({ force = false } = {}) {
     return grouped;
 }
 
-// The AniList rows the user has enabled AND that actually have entries. Returns
-// [{ key, label, filter, setting, entries }]. Empty array when logged out.
-async function getEnabledAnilistRows(settings) {
-    if (!(await isAnilistLoggedIn())) return [];
-    let lists;
-    try {
-        lists = await fetchAnilistLists();
-    } catch (err) {
-        console.warn("[APW] AniList lists fetch failed:", err);
-        return [];
-    }
-    if (!lists) return [];
+// ---------- Row model ----------
+// The widget stacks rows: two native ones (the local watchlist) plus one per enabled AniList list.
 
-    return ANILIST_STATUSES
-        .filter(s => settings[s.setting] !== false)
-        .map(s => ({ ...s, entries: lists[s.key] || [] }))
-        .filter(row => row.entries.length > 0);
+// Native rows first, then AniList lists in ANILIST_STATUSES order.
+function defaultRowIds() {
+    return ["watching", "plan", ...ANILIST_STATUSES.map(s => s.filter)];
+}
+
+// Static descriptor for a row id, or null if the id is unknown.
+function rowDefById(id) {
+    if (id === "watching") return { id, title: "Currently Watching", setting: "rowWatching", kind: "native", status: "watching" };
+    if (id === "plan")     return { id, title: "Plan to Watch",      setting: "rowPlan",     kind: "native", status: "plan" };
+    const s = ANILIST_STATUSES.find(x => x.filter === id);
+    if (s) return { id, title: s.label, setting: s.setting, kind: "anilist", key: s.key };
+    return null;
+}
+
+// The display order: the saved order, with any rows it doesn't mention appended in default order.
+function orderedRowIds(settings) {
+    const all = defaultRowIds();
+    const saved = Array.isArray(settings.rowOrder) ? settings.rowOrder.filter(id => all.includes(id)) : [];
+    for (const id of all) if (!saved.includes(id)) saved.push(id);
+    return saved;
+}
+
+// AniList rows that exist for the manager UI (logged in). Native rows are always available.
+async function availableRowDefs(settings) {
+    const loggedIn = await isAnilistLoggedIn();
+    return orderedRowIds(settings)
+        .map(rowDefById)
+        .filter(def => def && (def.kind === "native" || loggedIn));
 }
 
 async function getCountdownForEntry(entry) {
@@ -736,6 +756,10 @@ function injectStyles() {
         }
 
         .apw-settings-gear-header {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
             background: transparent;
             border: none;
             color: rgba(255, 255, 255, 0.45);
@@ -746,6 +770,42 @@ function injectStyles() {
             justify-content: center;
             border-radius: 6px;
             transition: color 0.15s, background 0.15s;
+        }
+
+        .apw-rows {
+            width: 100%;
+            max-width: ${viewportWidth}px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .apw-row {
+            width: 100%;
+        }
+
+        .apw-row-header {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-bottom: 0.55rem;
+            padding: 0 4px;
+        }
+
+        .apw-row-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .apw-row-count {
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+
+        .apw-row-empty {
+            font-size: 0.85rem;
+            opacity: 0.5;
+            padding: 0.4rem 4px 0.8rem;
         }
 
         .apw-settings-gear-header:hover {
@@ -1194,72 +1254,73 @@ function buildPlaceholder() {
     `;
 }
 
-async function buildControls(list) {
-    const settings = await getSettings();
-
-    if (!settings.showFilters) {
-        return "";
-    }
-
-    const watchingCount = list.filter(item => (item.status || "watching") === "watching").length;
-    const planCount = list.filter(item => item.status === "plan").length;
-
-    const anilistRows = await getEnabledAnilistRows(settings);
-
-    // If the saved active tab is an AniList row that's no longer available (logged out, disabled, or
-    // now empty), fall back to Currently Watching so the widget doesn't render an empty list.
-    let activeFilter = settings.currentFilter;
-    if (activeFilter.startsWith("al:") && !anilistRows.some(r => r.filter === activeFilter)) {
-        activeFilter = "watching";
-        await saveSettings({ currentFilter: "watching" });
-    }
-
-    const anilistTabs = anilistRows.map(row => `
-        <button class="apw-tab ${activeFilter === row.filter ? "apw-active" : ""}" data-filter="${row.filter}">
-            ${escapeHtml(row.label)} <span class="apw-tab-count">${row.entries.length}</span>
-        </button>
-    `).join("");
+// One stacked row: a header (title + count) and its own horizontal slider. An empty row shows a
+// short message instead of a slider.
+function buildRow(def, cardsHtml, count) {
+    const body = cardsHtml
+        ? `
+            <div class="apw-slider-wrap">
+                <button class="apw-arrow apw-arrow-left" aria-label="Scroll left">‹</button>
+                <div class="apw-viewport">
+                    <div class="apw-list">${cardsHtml}</div>
+                </div>
+                <button class="apw-arrow apw-arrow-right" aria-label="Scroll right">›</button>
+            </div>
+        `
+        : `<div class="apw-row-empty">${escapeHtml(rowEmptyText(def))}</div>`;
 
     return `
-        <div class="apw-controls">
-            <div class="apw-tabs" aria-label="Anime list filters">
-                <button class="apw-tab ${activeFilter === "watching" ? "apw-active" : ""}" data-filter="watching">
-                    Currently Watching <span class="apw-tab-count">${watchingCount}</span>
-                </button>
-
-                <button class="apw-tab ${activeFilter === "plan" ? "apw-active" : ""}" data-filter="plan">
-                    Plan to Watch <span class="apw-tab-count">${planCount}</span>
-                </button>
-
-                ${anilistTabs}
-
-                ${settings.showSettingsButton !== false ? `<button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings"><span>Settings</span>${GEAR_SVG}</button>` : ""}
+        <div class="apw-row" data-row="${escapeHtml(def.id)}">
+            <div class="apw-row-header">
+                <span class="apw-row-title">${escapeHtml(def.title)}</span>
+                <span class="apw-row-count">${count}</span>
             </div>
-
-            <div class="apw-meta"></div>
+            ${body}
         </div>
     `;
 }
 
-async function updateTabCounts() {
-    const list = await getWatched();
-
-    const watchingCount = list.filter(item => (item.status || "watching") === "watching").length;
-    const planCount = list.filter(item => item.status === "plan").length;
-
-    const watchingTab = document.querySelector('.apw-tab[data-filter="watching"] .apw-tab-count');
-    const planTab = document.querySelector('.apw-tab[data-filter="plan"] .apw-tab-count');
-
-    if (watchingTab) watchingTab.textContent = watchingCount;
-    if (planTab) planTab.textContent = planCount;
+function rowEmptyText(def) {
+    if (def.id === "plan") return "Nothing planned yet — add anime with the + Plan button.";
+    if (def.id === "watching") return "No anime currently watching.";
+    return "Nothing in this AniList list.";
 }
 
-function updateArrows() {
-    const list = document.querySelector("#animepahe-watchlist .apw-list");
-    const leftBtn = document.querySelector("#animepahe-watchlist .apw-arrow-left");
-    const rightBtn = document.querySelector("#animepahe-watchlist .apw-arrow-right");
+// Build the HTML for every enabled, non-empty row in display order. Returns "" when there's nothing
+// to show (so the caller can fall back to the empty-widget placeholder).
+async function buildRows(watched, anilistLists) {
+    const settings = await getSettings();
+    const rows = [];
 
-    if (!list || !leftBtn || !rightBtn) return;
+    for (const id of orderedRowIds(settings)) {
+        const def = rowDefById(id);
+        if (!def) continue;
+        if (settings[def.setting] === false) continue;
+
+        if (def.kind === "native") {
+            const items = watched.filter(e => !e.deleted && (e.status || "watching") === def.status);
+            if (!items.length) continue;   // hide empty rows (placeholder covers the all-empty case)
+            const cardsHtml = items.map(e => buildCard(e, def.status)).join("");
+            rows.push(buildRow(def, cardsHtml, items.length));
+        } else {
+            if (!anilistLists) continue;   // logged out or fetch failed
+            const entries = anilistLists[def.key] || [];
+            if (!entries.length) continue;   // hide empty AniList rows
+            const cardsHtml = entries.map(e => buildAnilistCard(e, def.id, false)).join("");
+            rows.push(buildRow(def, cardsHtml, entries.length));
+        }
+    }
+
+    return rows.join("");
+}
+
+// Enable/disable a single row's arrows from its own list's scroll state.
+function updateArrowsForList(list) {
+    const wrap = list.closest(".apw-slider-wrap");
+    if (!wrap) return;
+    const leftBtn = wrap.querySelector(".apw-arrow-left");
+    const rightBtn = wrap.querySelector(".apw-arrow-right");
+    if (!leftBtn || !rightBtn) return;
 
     const overflowing = list.scrollWidth > list.clientWidth + 1;
     list.classList.toggle("apw-centered", !overflowing);
@@ -1274,44 +1335,20 @@ function updateArrows() {
     rightBtn.disabled = list.scrollLeft >= list.scrollWidth - list.clientWidth - 1;
 }
 
-async function updateMeta() {
-    const meta = document.querySelector("#animepahe-watchlist .apw-meta");
-    if (!meta) return;
-
-    const visibleCards = document.querySelectorAll("#animepahe-watchlist .apw-wrap:not(.apw-hidden)").length;
-
-    if (!visibleCards) {
-        meta.textContent = "";
-        meta.classList.remove("apw-meta-capped");
-        return;
-    }
-
-    const settings = await getSettings();
-
-    // AniList rows mirror the user's AniList account — they have no local cap.
-    if (settings.currentFilter.startsWith("al:")) {
-        meta.textContent = `${visibleCards} shown`;
-        meta.classList.remove("apw-meta-capped");
-        return;
-    }
-
-    const cap = settings.currentFilter === "plan" ? MAX_PLAN : MAX_WATCHING;
-
-    if (visibleCards >= cap) {
-        meta.textContent = `${visibleCards}/${cap} · Capped`;
-        meta.classList.add("apw-meta-capped");
-    } else {
-        meta.textContent = `${visibleCards} shown`;
-        meta.classList.remove("apw-meta-capped");
-    }
+// Refresh arrows for every row in the widget.
+function updateArrows() {
+    document.querySelectorAll("#animepahe-watchlist .apw-list").forEach(updateArrowsForList);
 }
 
 async function applyAlignment() {
-    const list = document.querySelector("#animepahe-watchlist .apw-list");
-    if (!list) return;
+    const lists = document.querySelectorAll("#animepahe-watchlist .apw-list");
+    if (!lists.length) return;
     const settings = await getSettings();
-    list.classList.remove("apw-align-left", "apw-align-center", "apw-align-right");
-    list.classList.add(`apw-align-${settings.cardAlignment || "center"}`);
+    const align = `apw-align-${settings.cardAlignment || "center"}`;
+    lists.forEach(list => {
+        list.classList.remove("apw-align-left", "apw-align-center", "apw-align-right");
+        list.classList.add(align);
+    });
     updateArrows();
 }
 
@@ -1382,56 +1419,6 @@ function enableDragScroll(slider) {
     slider.addEventListener("dragstart", e => e.preventDefault());
 }
 
-async function applyFilters() {
-    const settings = await getSettings();
-
-    const list = document.querySelector("#animepahe-watchlist .apw-list");
-    const emptyState = document.querySelector("#animepahe-watchlist .apw-filter-empty");
-    const emptyTitle = document.querySelector("#animepahe-watchlist .apw-filter-empty-title");
-    const emptyText = document.querySelector("#animepahe-watchlist .apw-filter-empty-text");
-
-    if (!list) return;
-
-    const cards = Array.from(list.querySelectorAll(".apw-wrap"));
-    let visibleCount = 0;
-
-    cards.forEach(card => {
-        const status = card.dataset.status || "watching";
-        const shouldShow = status === settings.currentFilter;
-
-        card.classList.toggle("apw-hidden", !shouldShow);
-
-        if (shouldShow) visibleCount++;
-    });
-
-    if (emptyState && emptyTitle && emptyText) {
-        const isEmpty = visibleCount === 0;
-
-        emptyState.classList.toggle("apw-hidden", !isEmpty);
-
-        if (isEmpty && settings.currentFilter === "plan") {
-            emptyTitle.textContent = "No anime in Plan to Watch yet.";
-            emptyText.textContent = "Move an anime here with the + Plan button.";
-        }
-
-        if (isEmpty && settings.currentFilter === "watching") {
-            emptyTitle.textContent = "No anime currently watching.";
-            emptyText.textContent = "Move an anime back here with the ▶ Watch button.";
-        }
-
-        if (isEmpty && settings.currentFilter.startsWith("al:")) {
-            emptyTitle.textContent = "Nothing in this AniList list.";
-            emptyText.textContent = "Entries you add on AniList will show up here.";
-        }
-    }
-
-    requestAnimationFrame(() => {
-        updateArrows();
-        updateMeta();
-        updateTabCounts();
-    });
-}
-
 // ---------- Status / remove ----------
 async function removeEntry(animeUrl) {
     const list = await getWatched();
@@ -1444,21 +1431,9 @@ async function removeEntry(animeUrl) {
         await saveWatched(list);
     }
 
-    const el = document.querySelector(`#animepahe-watchlist .apw-wrap[data-anime="${cssEscape(animeUrl)}"]`);
-    if (el) el.remove();
-
-    if (!list.some(item => !item.deleted)) {
-        const body = document.querySelector("#animepahe-watchlist .apw-body");
-        if (body) body.innerHTML = buildPlaceholder();
-
-        const controls = document.querySelector("#animepahe-watchlist .apw-controls");
-        if (controls) controls.remove();
-    }
-
-    updateArrows();
-    updateMeta();
-    await updateTabCounts();
-    await applyFilters();
+    // Rebuild: the card leaves its row, that row's count changes, and the row (or the whole widget)
+    // may need to fall back to an empty state.
+    refreshWatchlist();
 }
 
 async function toggleEntryStatus(animeUrl) {
@@ -1661,7 +1636,7 @@ async function applyNewEpisodeBadges(section) {
         addOrUpdateNewBadge(card, watchedEp, latestEp);
     }
 
-    await applyFilters();
+    updateArrows();
 }
 
 function waitForLatestAndApplyBadges(section, tries = 30) {
@@ -1770,7 +1745,7 @@ async function applyCountdowns(section) {
         startCountdownTicker();
     }
 
-    await applyFilters();
+    updateArrows();
 }
 
 // ---------- Render ----------
@@ -1866,29 +1841,23 @@ async function renderWatchlist() {
         setTimeout(() => waitFor(selector, cb, tries - 1), 250);
     };
 
+    // Fetch the AniList lists once (a single call returns every list) so all enabled rows can render.
+    const anilistLists = (await isAnilistLoggedIn())
+        ? await fetchAnilistLists().catch(() => null)
+        : null;
+
     waitFor(".latest-release", async latestRelease => {
         if (document.querySelector("#animepahe-watchlist")) return;
 
-        const controls = list.length ? await buildControls(list) : "";
-
-        const body = list.length
-            ? `
-                <div class="apw-slider-wrap">
-                    <button class="apw-arrow apw-arrow-left" aria-label="Scroll left">‹</button>
-
-                    <div class="apw-viewport">
-                        <div class="apw-list">${list.filter(entry => !entry.deleted).map(entry => buildCard(entry, widgetSettings.currentFilter)).join("")}</div>
-                    </div>
-
-                    <button class="apw-arrow apw-arrow-right" aria-label="Scroll right">›</button>
-
-                    <div class="apw-filter-empty apw-hidden">
-                        <div class="apw-filter-empty-title"></div>
-                        <div class="apw-filter-empty-text"></div>
-                    </div>
-                </div>
-            `
+        const settings = await getSettings();
+        const rowsHtml = await buildRows(list, anilistLists);
+        const body = rowsHtml
+            ? `<div class="apw-rows">${rowsHtml}</div>`
             : buildPlaceholder();
+
+        const gear = settings.showSettingsButton !== false
+            ? `<button class="apw-settings-gear apw-settings-gear-header" aria-label="Open settings">${GEAR_SVG}</button>`
+            : "";
 
         const section = document.createElement("div");
         section.id = "animepahe-watchlist";
@@ -1896,17 +1865,14 @@ async function renderWatchlist() {
         section.innerHTML = `
             <div class="apw-header">
                 <h2>Animepahe Watchlist</h2>
+                ${gear}
             </div>
 
-            ${controls}
-
-            <div class="apw-body">
-                ${body}
-            </div>
+            ${body}
         `;
 
-        const tabGear = section.querySelector(".apw-settings-gear");
-        if (tabGear) tabGear.addEventListener("click", togglePanel);
+        const gearBtn = section.querySelector(".apw-settings-gear");
+        if (gearBtn) gearBtn.addEventListener("click", togglePanel);
 
         section.addEventListener("click", async e => {
             const removeBtn = e.target.closest(".apw-remove");
@@ -1932,27 +1898,6 @@ async function renderWatchlist() {
                 const animeUrl = wrap?.getAttribute("data-anime");
 
                 if (animeUrl) await toggleEntryStatus(animeUrl);
-                return;
-            }
-
-            const tab = e.target.closest(".apw-tab");
-
-            if (tab) {
-                e.preventDefault();
-
-                const filter = tab.dataset.filter;
-                await saveSettings({ currentFilter: filter });
-
-                section.querySelectorAll(".apw-tab").forEach(t => {
-                    t.classList.toggle("apw-active", t === tab);
-                });
-
-                // AniList rows are rendered lazily on first activation.
-                if (filter.startsWith("al:")) {
-                    await ensureAnilistCardsRendered(filter);
-                }
-
-                await applyFilters();
                 return;
             }
 
@@ -2001,36 +1946,28 @@ async function renderWatchlist() {
             }
         });
 
-        const arrowLeft = section.querySelector(".apw-arrow-left");
-        const arrowRight = section.querySelector(".apw-arrow-right");
-        const slider = section.querySelector(".apw-list");
+        // Wire each row's slider independently (arrows + drag-scroll).
         const step = CARD_WIDTH + CARD_GAP;
+        section.querySelectorAll(".apw-slider-wrap").forEach(wrap => {
+            const arrowLeft = wrap.querySelector(".apw-arrow-left");
+            const arrowRight = wrap.querySelector(".apw-arrow-right");
+            const slider = wrap.querySelector(".apw-list");
+            if (!(arrowLeft && arrowRight && slider)) return;
 
-        if (arrowLeft && arrowRight && slider) {
             arrowLeft.addEventListener("click", () => {
                 slider.scrollBy({ left: -step * 3, behavior: "smooth" });
             });
-
             arrowRight.addEventListener("click", () => {
                 slider.scrollBy({ left: step * 3, behavior: "smooth" });
             });
-
-            slider.addEventListener("scroll", updateArrows);
+            slider.addEventListener("scroll", () => updateArrowsForList(slider));
             enableDragScroll(slider);
-        }
+        });
 
         latestRelease.parentNode.insertBefore(section, latestRelease);
 
         requestAnimationFrame(async () => {
-            // If an AniList row is the active tab, its cards are lazy — render them before filtering.
-            const active = (await getSettings()).currentFilter;
-            if (active.startsWith("al:")) {
-                await ensureAnilistCardsRendered(active);
-            }
             updateArrows();
-            updateMeta();
-            await updateTabCounts();
-            await applyFilters();
             await applyAlignment();
             await applySettingsClasses();
         });
@@ -2124,12 +2061,21 @@ async function buildPanel() {
 
     const anilistLoggedIn = await isAnilistLoggedIn();
     const anilistProfile = await storageGet(ANILIST_PROFILE_KEY, null);
-    const anilistRowToggles = ANILIST_STATUSES.map(s =>
-        `<label class="apw-toggle"><span>${escapeHtml(s.label)}</span><input type="checkbox" data-setting="${s.setting}"${anilistLoggedIn ? "" : " disabled"}></label>`
-    ).join("");
-    const anilistRowsDesc = anilistLoggedIn
-        ? `Signed in as ${escapeHtml(anilistProfile?.name || "AniList user")}. Choose which of your AniList lists appear as widget rows.`
-        : `Log in from the extension popup (AniList section) to show your AniList lists as rows here.`;
+    // The Rows manager lists every available row in display order: the two native rows always, and
+    // the AniList lists when signed in. Each row has reorder controls and a show/hide toggle.
+    const rowDefs = await availableRowDefs(settings);
+    const rowManagerItems = rowDefs.map(def => `
+        <div class="apw-row-item" data-row-id="${escapeHtml(def.id)}">
+            <div class="apw-row-reorder">
+                <button class="apw-row-up" aria-label="Move up" title="Move up">↑</button>
+                <button class="apw-row-down" aria-label="Move down" title="Move down">↓</button>
+            </div>
+            <label class="apw-toggle apw-row-item-toggle"><span>${escapeHtml(def.title)}</span><input type="checkbox" data-setting="${def.setting}"></label>
+        </div>
+    `).join("");
+    const rowsDesc = anilistLoggedIn
+        ? `Signed in as ${escapeHtml(anilistProfile?.name || "AniList user")}. Reorder rows and choose which appear on the widget.`
+        : `Reorder your rows and choose which appear. Log in from the extension popup (AniList section) to add your AniList lists as rows.`;
 
     const wrap = document.createElement("div");
     wrap.className = "apw-panel";
@@ -2189,10 +2135,10 @@ async function buildPanel() {
             </section>
             <section class="apw-panel-section">
                 <div class="apw-section-header">
-                    <h3 class="apw-section-title">AniList rows</h3>
-                    <p class="apw-section-desc">${anilistRowsDesc}</p>
+                    <h3 class="apw-section-title">Rows</h3>
+                    <p class="apw-section-desc">${rowsDesc}</p>
                 </div>
-                ${anilistRowToggles}
+                <div class="apw-rows-manager">${rowManagerItems}</div>
             </section>
         </div>
         <footer class="apw-panel-footer">
@@ -2267,10 +2213,31 @@ async function buildPanel() {
                 syncProgressModeVisibility();
                 document.querySelectorAll("#animepahe-watchlist .apw-wrap").forEach(card => updateProgressText(card));
             }
-            // Toggling which AniList lists show as rows rebuilds the widget's tab strip.
-            if (key.startsWith("alRow") && isHomePage) {
+            // Toggling a row's visibility (native rowWatching/rowPlan or an alRow*) rebuilds the widget.
+            if ((key.startsWith("row") || key.startsWith("alRow")) && isHomePage) {
                 refreshWatchlist();
             }
+        });
+    });
+
+    // Row reorder (↑/↓): move the item in the manager, persist the new order, rebuild the widget.
+    wrap.querySelectorAll(".apw-row-up, .apw-row-down").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const item = btn.closest(".apw-row-item");
+            const manager = item?.parentElement;
+            if (!item || !manager) return;
+
+            if (btn.classList.contains("apw-row-up")) {
+                const prev = item.previousElementSibling;
+                if (prev) manager.insertBefore(item, prev);
+            } else {
+                const next = item.nextElementSibling;
+                if (next) manager.insertBefore(next, item);
+            }
+
+            const order = [...manager.querySelectorAll(".apw-row-item")].map(el => el.dataset.rowId);
+            await saveSettings({ rowOrder: order });
+            if (isHomePage) refreshWatchlist();
         });
     });
 
@@ -2357,28 +2324,6 @@ function buildAnilistCard(entry, filter, hidden) {
             </div>
         </div>
     `;
-}
-
-// Insert the given AniList row's cards into the slider once (idempotent — skips if already present).
-async function ensureAnilistCardsRendered(filter) {
-    const listEl = document.querySelector("#animepahe-watchlist .apw-list");
-    if (!listEl) return;
-    if (listEl.querySelector(`.apw-wrap[data-status="${cssEscape(filter)}"]`)) return;   // already rendered
-
-    const status = ANILIST_STATUSES.find(s => s.filter === filter);
-    if (!status) return;
-
-    let lists;
-    try {
-        lists = await fetchAnilistLists();
-    } catch {
-        return;
-    }
-    const entries = lists?.[status.key] || [];
-    if (!entries.length) return;
-
-    const html = entries.map(e => buildAnilistCard(e, filter, true)).join("");
-    listEl.insertAdjacentHTML("beforeend", html);
 }
 
 // Search AnimePahe for an AniList entry's title and open the best match. Returns false if nothing

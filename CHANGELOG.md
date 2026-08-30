@@ -5,8 +5,9 @@
 - Log in to AniList from the extension popup (AniList section) using Chrome's built-in auth flow — no password stored, no server involved
 - One-time setup shows the redirect URL to register an AniList developer client and takes the numeric Client ID
 - Popup shows your AniList profile once signed in (avatar, name, anime/episode counts)
-- Your AniList lists appear as extra rows in the widget tabs — Watching and Planning on by default
-- Choose which AniList lists show as rows in Settings → AniList rows (Watching, Planning, Completed, Paused, Dropped, Rewatching)
+- The widget now stacks each list as its own row (like NyanTV) instead of one row with tabs — Currently Watching, Plan to Watch, then your AniList lists
+- Your AniList lists appear as rows when signed in — Watching and Planning on by default
+- Settings → Rows: reorder rows (↑/↓) and choose which ones show (native rows plus Watching, Planning, Completed, Paused, Dropped, Rewatching)
 - AniList cards show the cover, title, and your progress; clicking one searches AnimePahe and opens the match
 
 ## v1.5.0 — Player features (beta)
