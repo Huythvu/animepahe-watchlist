@@ -1242,13 +1242,20 @@ async function applyFilters() {
 
 // ---------- Status / remove ----------
 async function removeEntry(animeUrl) {
-    const list = (await getWatched()).filter(item => item.animeUrl !== animeUrl);
-    await saveWatched(list);
+    const list = await getWatched();
+    const idx = list.findIndex(item => item.animeUrl === animeUrl);
+    if (idx !== -1) {
+        // Tombstone rather than drop, so the deletion propagates to other clients (NyanTV / other
+        // browsers) through the last-write-wins merge instead of being re-added from the cloud.
+        list[idx].deleted = true;
+        list[idx].statusTs = Date.now();
+        await saveWatched(list);
+    }
 
     const el = document.querySelector(`#animepahe-watchlist .apw-wrap[data-anime="${cssEscape(animeUrl)}"]`);
     if (el) el.remove();
 
-    if (!list.length) {
+    if (!list.some(item => !item.deleted)) {
         const body = document.querySelector("#animepahe-watchlist .apw-body");
         if (body) body.innerHTML = buildPlaceholder();
 
@@ -1593,7 +1600,7 @@ async function renderWatchlist() {
     // Backfill the AnimePahe link for entries pushed from another client (e.g. NyanTV): they carry an
     // anilistId but no animeUrl. Resolve once via search so they render and behave like native entries.
     for (const entry of list) {
-        if (entry.animeUrl || !Number.isInteger(entry.anilistId)) continue;
+        if (entry.deleted || entry.animeUrl || !Number.isInteger(entry.anilistId)) continue;
         try {
             const results = await searchAnimepahe(entry.title);
             const match = results[0];
@@ -1609,6 +1616,7 @@ async function renderWatchlist() {
     }
 
     for (const entry of list) {
+        if (entry.deleted) continue;
         if (!entry.status) {
             entry.status = "watching";
             mutated = true;
@@ -1677,7 +1685,7 @@ async function renderWatchlist() {
                     <button class="apw-arrow apw-arrow-left" aria-label="Scroll left">‹</button>
 
                     <div class="apw-viewport">
-                        <div class="apw-list">${list.map(entry => buildCard(entry, widgetSettings.currentFilter)).join("")}</div>
+                        <div class="apw-list">${list.filter(entry => !entry.deleted).map(entry => buildCard(entry, widgetSettings.currentFilter)).join("")}</div>
                     </div>
 
                     <button class="apw-arrow apw-arrow-right" aria-label="Scroll right">›</button>

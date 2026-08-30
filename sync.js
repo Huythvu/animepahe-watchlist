@@ -7,6 +7,7 @@ const DEVICE_ID_KEY = "apw_device_id";
 // content.js caches resolved AniList ids here (animeUrl -> anilistId | null). We fold them into the
 // synced record so other clients (e.g. NyanTV) can match entries by AniList id instead of title.
 const ANILIST_ID_CACHE_KEY = "apw_anilist_id_cache";
+const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;   // keep deletion markers ~30 days, then drop
 
 async function getAniListIdCache() {
     const data = await chrome.storage.local.get([ANILIST_ID_CACHE_KEY]);
@@ -338,9 +339,12 @@ function sanitizeItems(items, anilistIdByUrl = {}) {
             // Episode in AniList-entry numbering, pushed by other clients (NyanTV) — shown when the
             // entry has no native AnimePahe episode.
             if (Number.isInteger(item.anilistEpisode) && item.anilistEpisode > 0) out.anilistEpisode = item.anilistEpisode;
+            // Tombstone: a deletion is kept (not dropped) so it propagates to other clients via the
+            // last-write-wins merge; filtered from display, GC'd after TOMBSTONE_TTL_MS.
+            if (item.deleted) out.deleted = true;
             return out;
         })
-        // Keep native entries (have an animeUrl) and cross-client entries (have an AniList id but no
-        // animeUrl yet — the content script backfills the link on demand).
-        .filter(item => item.title && (item.animeUrl || Number.isInteger(item.anilistId)));
+        .filter(item => item.title && (item.animeUrl || Number.isInteger(item.anilistId)))
+        // Garbage-collect old tombstones so they don't accumulate against the 70-item cap.
+        .filter(item => !(item.deleted && (Date.now() - (item.statusTs || 0)) > TOMBSTONE_TTL_MS));
 }
