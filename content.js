@@ -63,7 +63,9 @@ const DEFAULT_SETTINGS = {
     alRowCOMPLETED: false,
     alRowPAUSED: false,
     alRowDROPPED: false,
-    alRowREPEATING: false
+    alRowREPEATING: false,
+    // Push AnimePahe watch progress up to the signed-in AniList account (never regresses AniList).
+    pushToAnilist: true
 };
 
 let countdownTargets = new Map();
@@ -555,6 +557,83 @@ async function fetchAnilistLists({ force = false } = {}) {
 
     await storageSet(ANILIST_LISTS_CACHE_KEY, { ts: Date.now(), lists: grouped });
     return grouped;
+}
+
+// ---------- AniList progress push ----------
+// Bump progress on an existing list entry (leaves its status untouched).
+const AL_SAVE_PROGRESS = `
+    mutation ($mediaId: Int, $progress: Int) {
+        SaveMediaListEntry(mediaId: $mediaId, progress: $progress) { id progress }
+    }
+`;
+// Create/replace an entry as Watching with the given progress (for anime not on any list yet).
+const AL_SAVE_NEW = `
+    mutation ($mediaId: Int, $progress: Int) {
+        SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: CURRENT) { id progress status }
+    }
+`;
+
+// Per-session record of the highest episode we've reconciled with AniList for a media id, so repeat
+// renders don't re-check or re-push the same progress.
+const anilistPushedProgress = new Map();
+
+// Patch the cached AniList lists so the row shows the new progress and the next render won't re-push.
+async function patchAnilistListsCacheProgress(anilistId, progress) {
+    const wrap = await storageGet(ANILIST_LISTS_CACHE_KEY, null);
+    if (!wrap?.lists) return;
+    for (const key of Object.keys(wrap.lists)) {
+        const entry = (wrap.lists[key] || []).find(e => e.mediaId === anilistId);
+        if (entry) {
+            entry.progress = progress;
+            await storageSet(ANILIST_LISTS_CACHE_KEY, wrap);
+            return;
+        }
+    }
+}
+
+// Push a watch up to AniList when signed in and enabled. Never regresses: only writes when the local
+// AniList-numbering episode is higher than what AniList already has for that anime.
+async function maybePushAnilistProgress(animeUrl, anilistEp) {
+    if (!Number.isFinite(anilistEp) || anilistEp < 1) return;
+
+    const settings = await getSettings();
+    if (settings.pushToAnilist === false) return;
+    if (!(await isAnilistLoggedIn())) return;
+
+    const idCache = await storageGet(ANILIST_ID_CACHE_KEY, {});
+    const anilistId = idCache[animeUrl];
+    if (!Number.isInteger(anilistId)) return;
+
+    // Skip if this session already reconciled this media at or above this episode.
+    if ((anilistPushedProgress.get(anilistId) ?? -1) >= anilistEp) return;
+
+    let lists;
+    try {
+        lists = await fetchAnilistLists();
+    } catch {
+        return;
+    }
+    if (!lists) return;
+
+    let entry = null;
+    for (const s of ANILIST_STATUSES) {
+        const hit = (lists[s.key] || []).find(e => e.mediaId === anilistId);
+        if (hit) { entry = hit; break; }
+    }
+    const current = entry?.progress ?? 0;
+
+    // Mark reconciled up to the higher of local/remote so we don't recheck this media needlessly.
+    anilistPushedProgress.set(anilistId, Math.max(anilistEp, current));
+
+    if (anilistEp <= current) return;   // AniList is already at or ahead — never regress
+
+    try {
+        await anilistAuthRequest(entry ? AL_SAVE_PROGRESS : AL_SAVE_NEW, { mediaId: anilistId, progress: anilistEp });
+        await patchAnilistListsCacheProgress(anilistId, anilistEp);
+    } catch (err) {
+        console.warn("[APW] AniList progress push failed:", err);
+        anilistPushedProgress.delete(anilistId);   // allow a retry on a later render
+    }
 }
 
 // ---------- Row model ----------
@@ -2426,16 +2505,25 @@ function cleanupBadgeStack(card) {
     }
 }
 
-// Store the AniList-numbering episode on the watchlist entry so it syncs to other clients (NyanTV).
+// Store the AniList-numbering episode on the watchlist entry so it syncs to other clients (NyanTV),
+// and push the progress up to the signed-in AniList account (no-op when logged out / disabled).
 async function persistAnilistEpisode(animeUrl, anilistEp) {
     const list = await getWatched();
     const idx = list.findIndex(item => item.animeUrl === animeUrl);
-    if (idx === -1 || list[idx].anilistEpisode === anilistEp) return;   // missing or unchanged → no write
-    list[idx].anilistEpisode = anilistEp;
-    await saveWatched(list);
+    if (idx !== -1 && list[idx].anilistEpisode !== anilistEp) {
+        list[idx].anilistEpisode = anilistEp;
+        await saveWatched(list);
+    }
+    // Reconcile with AniList every time (guarded internally): this also catches up entries whose
+    // local episode was already stored before the user signed in.
+    await maybePushAnilistProgress(animeUrl, anilistEp);
 }
 
 async function updateProgressText(card) {
+    // AniList cards show their own "watched / total" from the account; the native-progress logic
+    // below (which reads data-watchedEp) doesn't apply and would blank them.
+    if (card.classList.contains("apw-al-card")) return;
+
     const progress = card.querySelector(".apw-progress");
     if (!progress) return;
 

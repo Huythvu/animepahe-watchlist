@@ -9,6 +9,7 @@
 - Your AniList lists appear as rows when signed in — Watching and Planning on by default
 - Settings → Rows: reorder rows (↑/↓) and choose which ones show (native rows plus Watching, Planning, Completed, Paused, Dropped, Rewatching)
 - AniList cards show the cover, title, and your progress; clicking one searches AnimePahe and opens the match
+- Watching an episode now pushes your progress up to AniList automatically — it only ever moves progress forward, never backward, and can be turned off in the popup (Sync watch progress to AniList)
 
 ## v1.5.0 — Player features (beta)
 

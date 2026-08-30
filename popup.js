@@ -76,6 +76,7 @@ const anilistAvatarEl = document.querySelector("#anilistAvatar");
 const anilistNameEl = document.querySelector("#anilistName");
 const anilistStatsEl = document.querySelector("#anilistStats");
 const anilistLogoutBtn = document.querySelector("#anilistLogout");
+const anilistPushToggle = document.querySelector("#anilistPushToggle");
 const anilistStatusEl = document.querySelector("#anilistStatus");
 
 let statusTimeout;
@@ -206,8 +207,15 @@ async function renderAnilist() {
             if (Number.isFinite(profile.episodesWatched)) parts.push(`${profile.episodesWatched} eps`);
             anilistStatsEl.textContent = parts.join(" · ");
         }
+        const settings = await getSettings();
+        anilistPushToggle.checked = settings.pushToAnilist !== false;
     }
 }
+
+anilistPushToggle.addEventListener("change", async () => {
+    await saveSettings({ pushToAnilist: anilistPushToggle.checked });
+    setAnilistStatus(anilistPushToggle.checked ? "Progress sync on." : "Progress sync off.");
+});
 
 anilistSetupToggle.addEventListener("click", () => {
     anilistSetup.classList.toggle("collapsed");
