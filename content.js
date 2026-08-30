@@ -6,9 +6,27 @@ const ANILIST_AIRING_CACHE_KEY = "apw_anilist_airing_cache";
 const ANILIST_TOTAL_EP_CACHE_KEY = "apw_anilist_total_ep_cache";
 const SETTINGS_KEY = "apw_settings";
 const ROTATION_LOG_KEY = "apw_rotation_log";
+// Written by the popup on AniList login (see anilist-auth.js). Read here so the widget can show the
+// logged-in user's AniList lists as rows.
+const ANILIST_TOKEN_KEY = "apw_anilist_token";
+const ANILIST_PROFILE_KEY = "apw_anilist_profile";
+const ANILIST_LISTS_CACHE_KEY = "apw_anilist_lists_cache";
 
 const ANILIST_AIRING_TTL_MS = 60 * 60 * 1000;
 const LATEST_EP_CACHE_TTL_MS = 30 * 60 * 1000;
+const ANILIST_LISTS_TTL_MS = 5 * 60 * 1000;
+
+// The AniList list statuses that can be shown as widget rows, in display order. `key` is AniList's
+// MediaListStatus; `filter` is the tab id (`al:` prefix distinguishes it from native watching/plan);
+// `setting` is the per-row show/hide toggle in DEFAULT_SETTINGS.
+const ANILIST_STATUSES = [
+    { key: "CURRENT",   label: "Watching",   filter: "al:CURRENT",   setting: "alRowCURRENT" },
+    { key: "PLANNING",  label: "Planning",   filter: "al:PLANNING",  setting: "alRowPLANNING" },
+    { key: "COMPLETED", label: "Completed",  filter: "al:COMPLETED", setting: "alRowCOMPLETED" },
+    { key: "PAUSED",    label: "Paused",     filter: "al:PAUSED",    setting: "alRowPAUSED" },
+    { key: "DROPPED",   label: "Dropped",    filter: "al:DROPPED",   setting: "alRowDROPPED" },
+    { key: "REPEATING", label: "Rewatching", filter: "al:REPEATING", setting: "alRowREPEATING" },
+];
 
 const MAX_WATCHING = 20;
 const MAX_PLAN = 50;
@@ -31,7 +49,15 @@ const DEFAULT_SETTINGS = {
     showSettingsButton: true,
     panelSide: "right",
     showAutoPlayPill: false,
-    autoPlayNext: false
+    autoPlayNext: false,
+    // AniList rows: which of the logged-in user's lists show as widget tabs. Watching + Planning on
+    // by default; the rest opt-in (so the tab strip stays short until the user wants more).
+    alRowCURRENT: true,
+    alRowPLANNING: true,
+    alRowCOMPLETED: false,
+    alRowPAUSED: false,
+    alRowDROPPED: false,
+    alRowREPEATING: false
 };
 
 let countdownTargets = new Map();
@@ -116,7 +142,10 @@ async function getSettings() {
         ...(await storageGet(SETTINGS_KEY, {}))
     };
 
-    if (!["watching", "plan"].includes(settings.currentFilter)) {
+    const validNativeFilter = ["watching", "plan"].includes(settings.currentFilter);
+    const validAnilistFilter = typeof settings.currentFilter === "string" &&
+        settings.currentFilter.startsWith("al:");
+    if (!validNativeFilter && !validAnilistFilter) {
         settings.currentFilter = "watching";
     }
 
@@ -407,6 +436,138 @@ async function getAniListInfoForEntry(entry) {
         console.warn("[APW] AniList fetch failed:", entry.title, err);
         return null;
     }
+}
+
+// ---------- AniList account (logged-in user's lists) ----------
+// The popup owns login (chrome.identity, implicit grant) and writes apw_anilist_token /
+// apw_anilist_profile. The content script only *reads* the token to fetch and render the user's
+// lists as widget rows; it never runs the OAuth flow itself (content scripts can't).
+
+async function getAnilistToken() {
+    return await storageGet(ANILIST_TOKEN_KEY, "");
+}
+
+async function isAnilistLoggedIn() {
+    return !!(await getAnilistToken());
+}
+
+// Authenticated AniList GraphQL. Sends the Bearer token; on a 401 the token is cleared (expired or
+// revoked) so the widget quietly drops back to the logged-out state on the next render.
+async function anilistAuthRequest(query, variables) {
+    const token = await getAnilistToken();
+    const headers = { "Content-Type": "application/json", "Accept": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch("https://graphql.anilist.co", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ query, variables })
+    });
+
+    if (res.status === 401) {
+        await chrome.storage.local.remove([ANILIST_TOKEN_KEY]);
+        throw new Error("AniList session expired");
+    }
+
+    const json = await res.json();
+    if (json.errors) throw json.errors;
+    return json.data;
+}
+
+async function getAnilistUserId() {
+    const profile = await storageGet(ANILIST_PROFILE_KEY, null);
+    if (profile?.id) return profile.id;
+    // No cached profile (e.g. logged in on another device that shares this token) — resolve it once.
+    const data = await anilistAuthRequest(`{ Viewer { id name } }`, {});
+    return data?.Viewer?.id ?? null;
+}
+
+// Fetch the user's anime lists grouped by MediaListStatus. Cached for ANILIST_LISTS_TTL_MS so
+// switching tabs / re-rendering doesn't re-hit AniList. Returns { CURRENT: [entry...], ... }.
+async function fetchAnilistLists({ force = false } = {}) {
+    if (!(await isAnilistLoggedIn())) return null;
+
+    const cache = await storageGet(ANILIST_LISTS_CACHE_KEY, null);
+    if (!force && cache && Date.now() - cache.ts < ANILIST_LISTS_TTL_MS) {
+        return cache.lists;
+    }
+
+    const userId = await getAnilistUserId();
+    if (!userId) return null;
+
+    const query = `
+        query ($userId: Int) {
+            MediaListCollection(userId: $userId, type: ANIME, sort: UPDATED_TIME_DESC) {
+                lists {
+                    entries {
+                        status
+                        progress
+                        media {
+                            id
+                            title { romaji english }
+                            coverImage { large }
+                            episodes
+                            nextAiringEpisode { episode }
+                        }
+                    }
+                }
+            }
+        }
+    `;
+
+    const data = await anilistAuthRequest(query, { userId });
+    const rawLists = data?.MediaListCollection?.lists || [];
+
+    const grouped = {};
+    for (const { key } of ANILIST_STATUSES) grouped[key] = [];
+
+    const seen = new Set();   // an entry can appear under a custom list too; dedupe by media id+status
+    for (const list of rawLists) {
+        for (const entry of (list.entries || [])) {
+            const status = entry.status;
+            if (!grouped[status]) continue;
+            const media = entry.media;
+            if (!media) continue;
+            const dedupeKey = `${status}:${media.id}`;
+            if (seen.has(dedupeKey)) continue;
+            seen.add(dedupeKey);
+
+            const airedEps = media.nextAiringEpisode?.episode
+                ? media.nextAiringEpisode.episode - 1
+                : (media.episodes || null);
+
+            grouped[status].push({
+                mediaId: media.id,
+                title: media.title?.english || media.title?.romaji || "Untitled",
+                cover: media.coverImage?.large || "",
+                progress: entry.progress || 0,
+                total: media.episodes || null,
+                aired: airedEps,
+            });
+        }
+    }
+
+    await storageSet(ANILIST_LISTS_CACHE_KEY, { ts: Date.now(), lists: grouped });
+    return grouped;
+}
+
+// The AniList rows the user has enabled AND that actually have entries. Returns
+// [{ key, label, filter, setting, entries }]. Empty array when logged out.
+async function getEnabledAnilistRows(settings) {
+    if (!(await isAnilistLoggedIn())) return [];
+    let lists;
+    try {
+        lists = await fetchAnilistLists();
+    } catch (err) {
+        console.warn("[APW] AniList lists fetch failed:", err);
+        return [];
+    }
+    if (!lists) return [];
+
+    return ANILIST_STATUSES
+        .filter(s => settings[s.setting] !== false)
+        .map(s => ({ ...s, entries: lists[s.key] || [] }))
+        .filter(row => row.entries.length > 0);
 }
 
 async function getCountdownForEntry(entry) {
@@ -1043,16 +1204,34 @@ async function buildControls(list) {
     const watchingCount = list.filter(item => (item.status || "watching") === "watching").length;
     const planCount = list.filter(item => item.status === "plan").length;
 
+    const anilistRows = await getEnabledAnilistRows(settings);
+
+    // If the saved active tab is an AniList row that's no longer available (logged out, disabled, or
+    // now empty), fall back to Currently Watching so the widget doesn't render an empty list.
+    let activeFilter = settings.currentFilter;
+    if (activeFilter.startsWith("al:") && !anilistRows.some(r => r.filter === activeFilter)) {
+        activeFilter = "watching";
+        await saveSettings({ currentFilter: "watching" });
+    }
+
+    const anilistTabs = anilistRows.map(row => `
+        <button class="apw-tab ${activeFilter === row.filter ? "apw-active" : ""}" data-filter="${row.filter}">
+            ${escapeHtml(row.label)} <span class="apw-tab-count">${row.entries.length}</span>
+        </button>
+    `).join("");
+
     return `
         <div class="apw-controls">
             <div class="apw-tabs" aria-label="Anime list filters">
-                <button class="apw-tab ${settings.currentFilter === "watching" ? "apw-active" : ""}" data-filter="watching">
+                <button class="apw-tab ${activeFilter === "watching" ? "apw-active" : ""}" data-filter="watching">
                     Currently Watching <span class="apw-tab-count">${watchingCount}</span>
                 </button>
 
-                <button class="apw-tab ${settings.currentFilter === "plan" ? "apw-active" : ""}" data-filter="plan">
+                <button class="apw-tab ${activeFilter === "plan" ? "apw-active" : ""}" data-filter="plan">
                     Plan to Watch <span class="apw-tab-count">${planCount}</span>
                 </button>
+
+                ${anilistTabs}
 
                 ${settings.showSettingsButton !== false ? `<button class="apw-settings-gear apw-settings-tab-btn" aria-label="Open settings"><span>Settings</span>${GEAR_SVG}</button>` : ""}
             </div>
@@ -1108,6 +1287,14 @@ async function updateMeta() {
     }
 
     const settings = await getSettings();
+
+    // AniList rows mirror the user's AniList account — they have no local cap.
+    if (settings.currentFilter.startsWith("al:")) {
+        meta.textContent = `${visibleCards} shown`;
+        meta.classList.remove("apw-meta-capped");
+        return;
+    }
+
     const cap = settings.currentFilter === "plan" ? MAX_PLAN : MAX_WATCHING;
 
     if (visibleCards >= cap) {
@@ -1230,6 +1417,11 @@ async function applyFilters() {
         if (isEmpty && settings.currentFilter === "watching") {
             emptyTitle.textContent = "No anime currently watching.";
             emptyText.textContent = "Move an anime back here with the ▶ Watch button.";
+        }
+
+        if (isEmpty && settings.currentFilter.startsWith("al:")) {
+            emptyTitle.textContent = "Nothing in this AniList list.";
+            emptyText.textContent = "Entries you add on AniList will show up here.";
         }
     }
 
@@ -1748,13 +1940,33 @@ async function renderWatchlist() {
             if (tab) {
                 e.preventDefault();
 
-                await saveSettings({ currentFilter: tab.dataset.filter });
+                const filter = tab.dataset.filter;
+                await saveSettings({ currentFilter: filter });
 
                 section.querySelectorAll(".apw-tab").forEach(t => {
                     t.classList.toggle("apw-active", t === tab);
                 });
 
+                // AniList rows are rendered lazily on first activation.
+                if (filter.startsWith("al:")) {
+                    await ensureAnilistCardsRendered(filter);
+                }
+
                 await applyFilters();
+                return;
+            }
+
+            // AniList card → search AnimePahe for the title and open it (no known local URL).
+            const alOpen = e.target.closest(".apw-al-open");
+            if (alOpen) {
+                e.preventDefault();
+                const wrap = alOpen.closest(".apw-wrap");
+                const alTitle = wrap?.getAttribute("data-al-title");
+                if (alTitle) {
+                    wrap.classList.add("apw-resolving");
+                    const opened = await openAnilistEntry(alTitle);
+                    if (!opened) wrap.classList.remove("apw-resolving");   // no match — undo loading
+                }
                 return;
             }
 
@@ -1810,6 +2022,11 @@ async function renderWatchlist() {
         latestRelease.parentNode.insertBefore(section, latestRelease);
 
         requestAnimationFrame(async () => {
+            // If an AniList row is the active tab, its cards are lazy — render them before filtering.
+            const active = (await getSettings()).currentFilter;
+            if (active.startsWith("al:")) {
+                await ensureAnilistCardsRendered(active);
+            }
             updateArrows();
             updateMeta();
             await updateTabCounts();
@@ -1905,6 +2122,15 @@ async function buildPanel() {
         ? `${rotationLog.count} detected · last ${formatRotationTime(rotationLog.lastTs)}`
         : "None detected yet";
 
+    const anilistLoggedIn = await isAnilistLoggedIn();
+    const anilistProfile = await storageGet(ANILIST_PROFILE_KEY, null);
+    const anilistRowToggles = ANILIST_STATUSES.map(s =>
+        `<label class="apw-toggle"><span>${escapeHtml(s.label)}</span><input type="checkbox" data-setting="${s.setting}"${anilistLoggedIn ? "" : " disabled"}></label>`
+    ).join("");
+    const anilistRowsDesc = anilistLoggedIn
+        ? `Signed in as ${escapeHtml(anilistProfile?.name || "AniList user")}. Choose which of your AniList lists appear as widget rows.`
+        : `Log in from the extension popup (AniList section) to show your AniList lists as rows here.`;
+
     const wrap = document.createElement("div");
     wrap.className = "apw-panel";
     wrap.innerHTML = `
@@ -1960,6 +2186,13 @@ async function buildPanel() {
                 <label class="apw-toggle"><span>Show auto-play next on play page <span class="apw-section-badge">Beta</span></span><input type="checkbox" data-setting="showAutoPlayPill"></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Resume from last position <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
                 <label class="apw-toggle apw-toggle-disabled"><span>Skip intro / outro (AniSkip) <span class="apw-section-badge">Coming soon</span></span><input type="checkbox" disabled></label>
+            </section>
+            <section class="apw-panel-section">
+                <div class="apw-section-header">
+                    <h3 class="apw-section-title">AniList rows</h3>
+                    <p class="apw-section-desc">${anilistRowsDesc}</p>
+                </div>
+                ${anilistRowToggles}
             </section>
         </div>
         <footer class="apw-panel-footer">
@@ -2034,6 +2267,10 @@ async function buildPanel() {
                 syncProgressModeVisibility();
                 document.querySelectorAll("#animepahe-watchlist .apw-wrap").forEach(card => updateProgressText(card));
             }
+            // Toggling which AniList lists show as rows rebuilds the widget's tab strip.
+            if (key.startsWith("alRow") && isHomePage) {
+                refreshWatchlist();
+            }
         });
     });
 
@@ -2083,6 +2320,82 @@ function refreshWatchlist() {
     if (isHomePage) {
         renderWatchlist();
     }
+}
+
+// A card for one of the logged-in user's AniList entries. Unlike native cards it has no
+// remove/status-toggle buttons (the source of truth is AniList) and its links don't point at a
+// known AnimePahe page — clicking searches AnimePahe for the title and opens the match.
+function buildAnilistCard(entry, filter, hidden) {
+    const title = escapeHtml(entry.title);
+    const cover = escapeHtml(entry.cover || "");
+    const total = entry.total || entry.aired;
+    const progressText = total
+        ? `${entry.progress} / ${total}`
+        : `${entry.progress}`;
+    const isLoading = cover ? "" : "apw-loading";
+
+    return `
+        <div
+            class="apw-wrap apw-al-card${hidden ? " apw-hidden" : ""}"
+            data-status="${escapeHtml(filter)}"
+            data-al-title="${title}"
+        >
+            <div class="apw-episode">
+                <div class="apw-snapshot ${isLoading}">
+                    <img src="${cover}" alt="" loading="lazy" draggable="false" onerror="this.style.opacity=0.2">
+                    <a href="#" class="apw-play-link apw-al-open">Open ${title}</a>
+                </div>
+
+                <div class="apw-label-wrap">
+                    <div class="apw-title">
+                        <a href="#" class="apw-al-open" title="${title}">${title}</a>
+                    </div>
+
+                    <div class="apw-episode-text">Ep. ${escapeHtml(String(entry.progress || 0))}</div>
+                    <div class="apw-progress">${escapeHtml(progressText)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Insert the given AniList row's cards into the slider once (idempotent — skips if already present).
+async function ensureAnilistCardsRendered(filter) {
+    const listEl = document.querySelector("#animepahe-watchlist .apw-list");
+    if (!listEl) return;
+    if (listEl.querySelector(`.apw-wrap[data-status="${cssEscape(filter)}"]`)) return;   // already rendered
+
+    const status = ANILIST_STATUSES.find(s => s.filter === filter);
+    if (!status) return;
+
+    let lists;
+    try {
+        lists = await fetchAnilistLists();
+    } catch {
+        return;
+    }
+    const entries = lists?.[status.key] || [];
+    if (!entries.length) return;
+
+    const html = entries.map(e => buildAnilistCard(e, filter, true)).join("");
+    listEl.insertAdjacentHTML("beforeend", html);
+}
+
+// Search AnimePahe for an AniList entry's title and open the best match. Returns false if nothing
+// resolved (AnimePahe has no plain search-results URL to fall back to), so the caller can undo the
+// card's loading state.
+async function openAnilistEntry(title) {
+    try {
+        const results = await searchAnimepahe(title);
+        const match = results[0];
+        if (match?.session) {
+            window.location.href = `/anime/${match.session}`;
+            return true;
+        }
+    } catch (err) {
+        console.warn("[APW] AniList entry open failed:", title, err);
+    }
+    return false;
 }
 
 function buildCard(entry, currentFilter = "watching") {
@@ -2255,6 +2568,15 @@ function escapeHtml(str) {
 // ---------- Settings change listener ----------
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !isHomePage) return;
+
+    // AniList login/logout happens in the popup; reflect it live on an open AnimePahe tab by
+    // rebuilding the widget (adds/removes the AniList row tabs) after dropping any stale list cache.
+    if (ANILIST_TOKEN_KEY in changes) {
+        chrome.storage.local.remove([ANILIST_LISTS_CACHE_KEY]);
+        refreshWatchlist();
+        return;
+    }
+
     if (!(SETTINGS_KEY in changes)) return;
 
     const newSettings = changes[SETTINGS_KEY].newValue || {};

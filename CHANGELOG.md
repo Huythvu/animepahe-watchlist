@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.6.0 — AniList account
+
+- Log in to AniList from the extension popup (AniList section) using Chrome's built-in auth flow — no password stored, no server involved
+- One-time setup shows the redirect URL to register an AniList developer client and takes the numeric Client ID
+- Popup shows your AniList profile once signed in (avatar, name, anime/episode counts)
+- Your AniList lists appear as extra rows in the widget tabs — Watching and Planning on by default
+- Choose which AniList lists show as rows in Settings → AniList rows (Watching, Planning, Completed, Paused, Dropped, Rewatching)
+- AniList cards show the cover, title, and your progress; clicking one searches AnimePahe and opens the match
+
 ## v1.5.0 — Player features (beta)
 
 - Auto-play next episode: a countdown card appears in the last 10 seconds of the video and navigates to the next episode when it hits zero
