@@ -447,8 +447,8 @@ async function getAniListInfoForEntry(entry) {
 }
 
 // ---------- AniList account (logged-in user's lists) ----------
-// The popup owns login (chrome.identity, implicit grant) and writes apw_anilist_token /
-// apw_anilist_profile. The content script only *reads* the token to fetch and render the user's
+// Login happens in the background service worker via the pairing relay and writes apw_anilist_token
+// / apw_anilist_profile. The content script only *reads* the token to fetch and render the user's
 // lists as widget rows; it never runs the OAuth flow itself (content scripts can't).
 
 async function getAnilistToken() {

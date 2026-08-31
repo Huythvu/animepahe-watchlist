@@ -2,15 +2,15 @@
   "manifest_version": 3,
   "name": "Animepahe Watchlist",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxO+fS9XOTd/50m4eblzuMrPXZm/54uKHaRTYVj1sJnUOtsIwBLDnjGIhDluUVeoW+nAExr+cpZGnZDSTQOC9Y8z5i3k6zsrK2Jwg4b6NS8uF/iOZFnDn0wALOUzJjdEllOeHsWV988haNxv3oLHXcSOcEFOwAP8//R8cHWihDhT8Bwm2pmKYVa0YydlXIguPN6tMO+ubuYXuTChCbCcmZt4VdDXiJRdGv22fIOIQss7piyqXW6XuFGkFcWoQrjH6pjNHsMnYZu02WjoSCEKRCrfnDl/inoUfpYrHoAY9b/m5J3xwbcuttfDtk78hpgb1AWoeHb6KeS3cybPO5AjHHQIDAQAB",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Adds a Currently Watching and Plan to Watch list to Animepahe.",
-  "permissions": ["storage", "tabs", "identity"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://animepahe.pw/*",
     "https://kwik.cx/*",
     "https://graphql.anilist.co/*",
-    "https://myanimelist.net/*",
     "https://api.myanimelist.net/*",
+    "https://nyan-tv.vercel.app/*",
     "https://firestore.googleapis.com/*"
   ],
   "icons": {

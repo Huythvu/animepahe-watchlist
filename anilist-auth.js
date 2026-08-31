@@ -1,40 +1,16 @@
 // AniList account login + authenticated GraphQL for the extension.
 //
-// This is the extension-native port of NyanTV's AnilistService. NyanTV uses a *confidential* OAuth
-// code flow (client_id + client_secret) routed through a pair-server, because an Android TV can't
-// catch a browser redirect. A Chrome extension can do the far simpler **implicit grant**:
-// `chrome.identity.launchWebAuthFlow` opens AniList's consent page and hands back the redirect URL
-// with the access token in its fragment — no secret, no relay server.
-//
-// One-time setup (personal use): register an AniList API client at
-// https://anilist.co/settings/developer with the redirect URL that `getRedirectUrl()` returns
-// (shown in the popup), then paste that client's numeric ID into the popup. The client ID is not a
-// secret in the implicit flow, so storing it locally is fine.
+// Login goes through NyanTV's pairing relay (see relay-auth.js): the relay holds the AniList client
+// ID + secret and does the OAuth token exchange server-side, so the extension never handles a
+// secret and doesn't need chrome.identity. AniList's implicit grant is rejected, so the code grant
+// via the relay is the only path that works. Must be driven from the background service worker.
 
-import { ANILIST_CLIENT_ID as BAKED_ANILIST_CLIENT_ID } from "./oauth-config.js";
+import { relayLogin } from "./relay-auth.js";
 
-const CLIENT_ID_KEY = "apw_anilist_client_id";
-const TOKEN_KEY     = "apw_anilist_token";
-const PROFILE_KEY   = "apw_anilist_profile";
+const TOKEN_KEY   = "apw_anilist_token";
+const PROFILE_KEY = "apw_anilist_profile";
 
-const AUTHORIZE_URL = "https://anilist.co/api/v2/oauth/authorize";
-const GRAPHQL_URL   = "https://graphql.anilist.co";
-
-/** The redirect URL Chrome assigns this extension: https://<extension-id>.chromiumapp.org/ */
-export function getRedirectUrl() {
-    return chrome.identity.getRedirectURL();
-}
-
-export async function getClientId() {
-    const data = await chrome.storage.local.get([CLIENT_ID_KEY]);
-    return data[CLIENT_ID_KEY] || BAKED_ANILIST_CLIENT_ID || "";
-}
-
-export async function setClientId(clientId) {
-    const cleaned = String(clientId || "").trim();
-    if (!/^\d+$/.test(cleaned)) throw new Error("Client ID must be the numeric ID from AniList.");
-    await chrome.storage.local.set({ [CLIENT_ID_KEY]: cleaned });
-}
+const GRAPHQL_URL = "https://graphql.anilist.co";
 
 export async function getToken() {
     const data = await chrome.storage.local.get([TOKEN_KEY]);
@@ -51,34 +27,14 @@ export async function isLoggedIn() {
 }
 
 /**
- * Run the AniList OAuth implicit grant. Must be called from an extension page (popup/background),
- * never a content script. Resolves with the stored profile on success; throws on cancel/failure.
+ * Log in to AniList via the relay. Runs the pairing flow (opens a consent tab, polls for the token),
+ * stores the token, and returns the profile. Call from the background service worker.
  */
 export async function login() {
-    const clientId = await getClientId();
-    if (!clientId) throw new Error("Set your AniList Client ID first.");
-
-    const redirectUri = getRedirectUrl();
-    const url = `${AUTHORIZE_URL}?client_id=${encodeURIComponent(clientId)}` +
-                `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-                `&response_type=token`;
-
-    const redirectResponse = await chrome.identity.launchWebAuthFlow({ url, interactive: true });
-    if (!redirectResponse) throw new Error("Login was cancelled.");
-
-    // Implicit grant returns the token in the URL fragment:
-    //   https://<id>.chromiumapp.org/#access_token=...&token_type=Bearer&expires_in=...
-    const hash = redirectResponse.split("#")[1] || "";
-    const params = new URLSearchParams(hash);
-    const token = params.get("access_token");
-    const error = params.get("error");
-    if (error) throw new Error(params.get("error_description") || error);
-    if (!token) throw new Error("AniList did not return a token. Check the redirect URL is registered.");
-
-    await chrome.storage.local.set({ [TOKEN_KEY]: token });
-
-    const profile = await fetchViewer();
-    return profile;
+    const { accessToken } = await relayLogin("anilist");
+    if (!accessToken) throw new Error("AniList login did not return a token.");
+    await chrome.storage.local.set({ [TOKEN_KEY]: accessToken });
+    return fetchViewer();
 }
 
 export async function logout() {

@@ -1,54 +1,17 @@
-// MyAnimeList account login for the extension popup.
+// MyAnimeList account login for the extension.
 //
-// MAL can't use AniList's clean implicit grant — it requires the OAuth 2.0 Authorization Code flow
-// with PKCE, a client secret, and refresh tokens. The good news: MAL only supports the `plain` PKCE
-// method, so the code_challenge is just the code_verifier verbatim (no SHA-256 needed). All of it
-// runs from the popup: `chrome.identity.launchWebAuthFlow` opens MAL's consent page and hands back
-// the ?code=..., then a token POST exchanges it.
-//
-// One-time setup (personal use): create an API app at https://myanimelist.net/apps/register with
-// App Type "Web", redirect URL = getRedirectUrl(), and paste its Client ID and Client Secret into
-// the popup. The secret is stored locally only (never committed, never leaves the browser).
+// Login goes through NyanTV's pairing relay (see relay-auth.js): the relay holds the MAL client ID
+// + secret and does the PKCE token exchange (and refresh) server-side, so the extension never holds
+// a secret and doesn't need chrome.identity. Must be driven from the background service worker.
 
-import { MAL_CLIENT_ID as BAKED_MAL_CLIENT_ID } from "./oauth-config.js";
+import { relayLogin, relayRefresh } from "./relay-auth.js";
 
-// The confidential MAL secret is injected at build time from a gitignored .env
-// (VITE_MAL_CLIENT_SECRET=...), so it's embedded in the built extension but never committed. Absent
-// on a fresh clone → falls back to a secret the user pastes in the popup.
-const BAKED_MAL_CLIENT_SECRET =
-    (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_MAL_CLIENT_SECRET) || "";
-
-const CLIENT_ID_KEY = "apw_mal_client_id";
-const CLIENT_SECRET_KEY = "apw_mal_client_secret";
 const TOKEN_KEY = "apw_mal_token";
 const REFRESH_KEY = "apw_mal_refresh";
 const EXPIRES_KEY = "apw_mal_expires";
 const PROFILE_KEY = "apw_mal_profile";
 
-const AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize";
-const TOKEN_URL = "https://myanimelist.net/v1/oauth2/token";
 const API_BASE = "https://api.myanimelist.net/v2";
-
-export function getRedirectUrl() {
-    return chrome.identity.getRedirectURL();
-}
-
-export async function getClientId() {
-    return (await chrome.storage.local.get([CLIENT_ID_KEY]))[CLIENT_ID_KEY] || BAKED_MAL_CLIENT_ID || "";
-}
-
-export async function getClientSecret() {
-    return (await chrome.storage.local.get([CLIENT_SECRET_KEY]))[CLIENT_SECRET_KEY] || BAKED_MAL_CLIENT_SECRET || "";
-}
-
-export async function setCredentials(clientId, clientSecret) {
-    // An empty Client ID falls back to the stored/baked-in one, so users only need to enter the secret.
-    const id = String(clientId || "").trim() || (await getClientId());
-    const secret = String(clientSecret || "").trim();
-    if (!id) throw new Error("Client ID is required.");
-    if (!secret) throw new Error("Client Secret is required.");
-    await chrome.storage.local.set({ [CLIENT_ID_KEY]: id, [CLIENT_SECRET_KEY]: secret });
-}
 
 export async function getProfile() {
     return (await chrome.storage.local.get([PROFILE_KEY]))[PROFILE_KEY] || null;
@@ -58,78 +21,28 @@ export async function isLoggedIn() {
     return !!(await chrome.storage.local.get([TOKEN_KEY]))[TOKEN_KEY];
 }
 
-// A high-entropy PKCE code verifier (43–128 chars of the unreserved set). With MAL's `plain` method
-// this doubles as the code_challenge.
-function makeCodeVerifier() {
-    const bytes = crypto.getRandomValues(new Uint8Array(64));
-    const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-    return Array.from(bytes, b => charset[b % charset.length]).join("");
-}
-
+/**
+ * Log in to MAL via the relay. Runs the pairing flow, stores the tokens, and returns the profile.
+ * Call from the background service worker.
+ */
 export async function login() {
-    const clientId = await getClientId();
-    const clientSecret = await getClientSecret();
-    if (!clientId || !clientSecret) throw new Error("Set your MAL Client ID and Secret first.");
-
-    const redirectUri = getRedirectUrl();
-    const codeVerifier = makeCodeVerifier();
-    const state = makeCodeVerifier().slice(0, 24);
-
-    const authUrl = `${AUTHORIZE_URL}?response_type=code` +
-        `&client_id=${encodeURIComponent(clientId)}` +
-        `&code_challenge=${encodeURIComponent(codeVerifier)}` +
-        `&code_challenge_method=plain` +
-        `&state=${encodeURIComponent(state)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-    const redirectResponse = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
-    if (!redirectResponse) throw new Error("Login was cancelled.");
-
-    // Code flow returns in the query string: https://<id>.chromiumapp.org/?code=...&state=...
-    const url = new URL(redirectResponse);
-    const returnedState = url.searchParams.get("state");
-    const code = url.searchParams.get("code");
-    const error = url.searchParams.get("error");
-    if (error) throw new Error(url.searchParams.get("message") || error);
-    if (!code) throw new Error("MAL did not return an authorization code.");
-    if (returnedState !== state) throw new Error("State mismatch — login aborted.");
-
-    await exchangeCode(code, codeVerifier, redirectUri, clientId, clientSecret);
-    return await fetchProfile();
+    const tok = await relayLogin("mal");
+    if (!tok.accessToken) throw new Error("MAL login did not return a token.");
+    await storeTokens(tok);
+    return fetchProfile();
 }
 
-async function exchangeCode(code, codeVerifier, redirectUri, clientId, clientSecret) {
-    const body = new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: "authorization_code",
-        code,
-        code_verifier: codeVerifier,
-        redirect_uri: redirectUri,
-    });
-    const resp = await fetch(TOKEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: body.toString(),
-    });
-    if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(`MAL token exchange failed (${resp.status}). ${text.slice(0, 200)}`);
-    }
-    await storeTokens(await resp.json());
-}
-
-async function storeTokens(data) {
-    const expiresAt = Date.now() + (Number(data.expires_in || 0) * 1000);
+async function storeTokens(tok) {
+    const expiresAt = Date.now() + (Number(tok.expiresIn || 0) * 1000);
     await chrome.storage.local.set({
-        [TOKEN_KEY]: data.access_token,
-        [REFRESH_KEY]: data.refresh_token || "",
+        [TOKEN_KEY]: tok.accessToken,
+        [REFRESH_KEY]: tok.refreshToken || "",
         [EXPIRES_KEY]: expiresAt,
     });
 }
 
-// Refresh the access token when it's within a day of expiry. Returns a usable token, or "" if the
-// session can't be renewed (caller should treat as logged out).
+// Return a usable access token, refreshing via the relay when it's within a day of expiry. Returns
+// "" only when there's no token at all.
 export async function getValidToken() {
     const data = await chrome.storage.local.get([TOKEN_KEY, REFRESH_KEY, EXPIRES_KEY]);
     const token = data[TOKEN_KEY];
@@ -141,26 +54,13 @@ export async function getValidToken() {
     const refresh = data[REFRESH_KEY];
     if (!refresh) return token;   // no refresh token — use what we have until it 401s
 
-    const clientId = await getClientId();
-    const clientSecret = await getClientSecret();
     try {
-        const body = new URLSearchParams({
-            client_id: clientId,
-            client_secret: clientSecret,
-            grant_type: "refresh_token",
-            refresh_token: refresh,
-        });
-        const resp = await fetch(TOKEN_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: body.toString(),
-        });
-        if (!resp.ok) return token;
-        const json = await resp.json();
-        await storeTokens(json);
-        return json.access_token;
+        const tok = await relayRefresh("mal", refresh);
+        if (!tok.accessToken) return token;
+        await storeTokens(tok);
+        return tok.accessToken;
     } catch {
-        return token;
+        return token;   // refresh failed — keep the current token until it 401s
     }
 }
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.8.0 — One-click login via the pairing relay
+
+- AniList and MyAnimeList login now go through NyanTV's pairing relay — the relay holds the client IDs/secrets and does the OAuth token exchange server-side, so the extension ships no secrets and needs no per-user setup
+- Log in with a single button: a tab opens to approve on the provider, then the extension picks up the token automatically
+- Login runs in the background service worker (so opening the consent tab no longer interrupts it) and no longer uses chrome.identity
+- Removed the Client ID / Client Secret setup and the build-time secret injection — nothing to configure
+- MyAnimeList tokens refresh automatically through the relay
+
 ## v1.7.0 — MyAnimeList login
 
 - Log in to MyAnimeList from the extension popup (MyAnimeList section)
