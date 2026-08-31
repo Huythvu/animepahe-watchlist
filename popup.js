@@ -302,11 +302,15 @@ function setMalStatus(message) {
 async function renderMal() {
     malRedirectEl.textContent = getRedirectUrl();
 
-    // Client ID is baked in — hide that field so the user only supplies the secret.
+    // Client ID is baked in — hide that field. If the secret is baked in too (build-time .env),
+    // there's nothing to enter: hide the whole setup and just show a plain login button.
     const clientId = await getMalClientId();
-    malClientIdInput.hidden = !!clientId;
     const clientSecret = await getMalClientSecret();
-    if (clientSecret && !malClientSecretInput.value) malClientSecretInput.value = clientSecret;
+    malClientIdInput.hidden = !!clientId;
+    const fullyConfigured = !!clientId && !!clientSecret;
+    const setupSteps = document.querySelector("#malSetupSteps");
+    if (setupSteps) setupSteps.hidden = fullyConfigured;
+    malLoginBtn.textContent = fullyConfigured ? "Log in with MyAnimeList" : "Save & log in";
 
     const loggedIn = await malIsLoggedIn();
     malLoggedOut.classList.toggle("hidden", loggedIn);
@@ -356,7 +360,8 @@ malLoginBtn.addEventListener("click", async () => {
         return;
     }
 
-    setButtonLoading(malLoginBtn, true, "Opening MyAnimeList...", "Save & log in");
+    const label = malLoginBtn.textContent;
+    setButtonLoading(malLoginBtn, true, "Opening MyAnimeList...", label);
     try {
         const profile = await malLogin();
         await renderMal();
@@ -365,7 +370,7 @@ malLoginBtn.addEventListener("click", async () => {
         console.error("MAL login failed:", err);
         setMalStatus(err.message || "Login failed");
     } finally {
-        setButtonLoading(malLoginBtn, false, "Opening MyAnimeList...", "Save & log in");
+        setButtonLoading(malLoginBtn, false, "Opening MyAnimeList...", label);
     }
 });
 

@@ -12,6 +12,12 @@
 
 import { MAL_CLIENT_ID as BAKED_MAL_CLIENT_ID } from "./oauth-config.js";
 
+// The confidential MAL secret is injected at build time from a gitignored .env
+// (VITE_MAL_CLIENT_SECRET=...), so it's embedded in the built extension but never committed. Absent
+// on a fresh clone → falls back to a secret the user pastes in the popup.
+const BAKED_MAL_CLIENT_SECRET =
+    (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_MAL_CLIENT_SECRET) || "";
+
 const CLIENT_ID_KEY = "apw_mal_client_id";
 const CLIENT_SECRET_KEY = "apw_mal_client_secret";
 const TOKEN_KEY = "apw_mal_token";
@@ -32,7 +38,7 @@ export async function getClientId() {
 }
 
 export async function getClientSecret() {
-    return (await chrome.storage.local.get([CLIENT_SECRET_KEY]))[CLIENT_SECRET_KEY] || "";
+    return (await chrome.storage.local.get([CLIENT_SECRET_KEY]))[CLIENT_SECRET_KEY] || BAKED_MAL_CLIENT_SECRET || "";
 }
 
 export async function setCredentials(clientId, clientSecret) {
