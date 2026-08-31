@@ -25,7 +25,10 @@ function requestLogin(provider) {
     return new Promise((resolve) => {
         chrome.runtime.sendMessage({ type: "oauthLogin", provider }, (resp) => {
             if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
+                // The popup usually closes when the consent tab takes focus, which closes this
+                // message channel ("message port closed…"). That's expected — the background keeps
+                // running the login. Treat it as in-progress, not a failure.
+                resolve({ pending: true });
             } else {
                 resolve(resp || { success: false, error: "No response" });
             }
@@ -240,6 +243,8 @@ anilistLoginBtn.addEventListener("click", async () => {
     await renderAnilist();
     if (resp.success) {
         setAnilistStatus(`Logged in as ${resp.profile?.name || "AniList user"}.`);
+    } else if (resp.pending) {
+        setAnilistStatus("Approve in the tab that opened, then reopen this popup.");
     } else {
         setAnilistStatus(resp.error || "Login failed");
     }
@@ -289,6 +294,8 @@ malLoginBtn.addEventListener("click", async () => {
     await renderMal();
     if (resp.success) {
         setMalStatus(`Logged in as ${resp.profile?.name || "MAL user"}.`);
+    } else if (resp.pending) {
+        setMalStatus("Approve in the tab that opened, then reopen this popup.");
     } else {
         setMalStatus(resp.error || "Login failed");
     }
@@ -450,6 +457,19 @@ copyPhraseBtn.addEventListener("click", async () => {
         setTimeout(() => { copyPhraseBtn.textContent = "Copy phrase"; }, 1500);
     } catch (err) {
         setStatus("Could not copy phrase");
+    }
+});
+
+// If the popup is still open when the background finishes a login, reflect it live.
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if ("apw_anilist_token" in changes || "apw_anilist_profile" in changes) {
+        renderAnilist();
+        if (changes.apw_anilist_token?.newValue) setAnilistStatus("Logged in to AniList.");
+    }
+    if ("apw_mal_token" in changes || "apw_mal_profile" in changes) {
+        renderMal();
+        if (changes.apw_mal_token?.newValue) setMalStatus("Logged in to MyAnimeList.");
     }
 });
 
