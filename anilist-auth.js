@@ -11,6 +11,8 @@
 // (shown in the popup), then paste that client's numeric ID into the popup. The client ID is not a
 // secret in the implicit flow, so storing it locally is fine.
 
+import { ANILIST_CLIENT_ID as BAKED_ANILIST_CLIENT_ID } from "./oauth-config.js";
+
 const CLIENT_ID_KEY = "apw_anilist_client_id";
 const TOKEN_KEY     = "apw_anilist_token";
 const PROFILE_KEY   = "apw_anilist_profile";
@@ -25,7 +27,7 @@ export function getRedirectUrl() {
 
 export async function getClientId() {
     const data = await chrome.storage.local.get([CLIENT_ID_KEY]);
-    return data[CLIENT_ID_KEY] || "";
+    return data[CLIENT_ID_KEY] || BAKED_ANILIST_CLIENT_ID || "";
 }
 
 export async function setClientId(clientId) {

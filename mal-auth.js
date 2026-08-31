@@ -10,6 +10,8 @@
 // App Type "Web", redirect URL = getRedirectUrl(), and paste its Client ID and Client Secret into
 // the popup. The secret is stored locally only (never committed, never leaves the browser).
 
+import { MAL_CLIENT_ID as BAKED_MAL_CLIENT_ID } from "./oauth-config.js";
+
 const CLIENT_ID_KEY = "apw_mal_client_id";
 const CLIENT_SECRET_KEY = "apw_mal_client_secret";
 const TOKEN_KEY = "apw_mal_token";
@@ -26,7 +28,7 @@ export function getRedirectUrl() {
 }
 
 export async function getClientId() {
-    return (await chrome.storage.local.get([CLIENT_ID_KEY]))[CLIENT_ID_KEY] || "";
+    return (await chrome.storage.local.get([CLIENT_ID_KEY]))[CLIENT_ID_KEY] || BAKED_MAL_CLIENT_ID || "";
 }
 
 export async function getClientSecret() {
@@ -34,7 +36,8 @@ export async function getClientSecret() {
 }
 
 export async function setCredentials(clientId, clientSecret) {
-    const id = String(clientId || "").trim();
+    // An empty Client ID falls back to the stored/baked-in one, so users only need to enter the secret.
+    const id = String(clientId || "").trim() || (await getClientId());
     const secret = String(clientSecret || "").trim();
     if (!id) throw new Error("Client ID is required.");
     if (!secret) throw new Error("Client Secret is required.");

@@ -533,3 +533,27 @@ input[type="text"]::placeholder {
 .hidden {
     display: none;
 }
+
+[hidden] {
+    display: none !important;
+}
+
+.setup-steps {
+    margin: 4px 0 10px;
+    padding-left: 20px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.setup-steps li {
+    margin-bottom: 8px;
+}
+
+.setup-steps input[type="text"] {
+    margin-top: 6px;
+}
+
+.setup-steps .redirect-row {
+    margin-top: 6px;
+}

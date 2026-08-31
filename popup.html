@@ -50,32 +50,29 @@
             <h2>AniList</h2>
 
             <div id="anilistLoggedOut">
-                <p class="hint">Log in to track episodes on your AniList account.</p>
-
-                <button id="anilistLogin" class="primary-btn">Log in with AniList</button>
-
-                <button id="anilistSetupToggle" class="secondary-btn">Setup (Client ID)</button>
-
-                <div id="anilistSetup" class="sync-form collapsed">
-                    <p class="hint">
+                <ol class="setup-steps" id="anilistSetupSteps">
+                    <li>
                         Register a client at
                         <a href="https://anilist.co/settings/developer" target="_blank">AniList → Developer</a>
                         with this redirect URL:
-                    </p>
-                    <div class="redirect-row">
-                        <code id="anilistRedirect" class="redirect-url"></code>
-                        <button id="copyRedirect" class="copy-phrase-btn">Copy</button>
-                    </div>
-                    <input
-                        id="anilistClientId"
-                        type="text"
-                        placeholder="Numeric Client ID"
-                        spellcheck="false"
-                        inputmode="numeric"
-                    >
-                    <p id="anilistSetupError" class="error-text hidden"></p>
-                    <button id="anilistSaveClientId" class="primary-btn">Save Client ID</button>
-                </div>
+                        <div class="redirect-row">
+                            <code id="anilistRedirect" class="redirect-url"></code>
+                            <button id="copyRedirect" class="copy-phrase-btn">Copy</button>
+                        </div>
+                    </li>
+                    <li>
+                        Paste the app's Client ID:
+                        <input
+                            id="anilistClientId"
+                            type="text"
+                            placeholder="Numeric Client ID"
+                            spellcheck="false"
+                            inputmode="numeric"
+                        >
+                    </li>
+                </ol>
+                <p id="anilistSetupError" class="error-text hidden"></p>
+                <button id="anilistLogin" class="primary-btn">Save &amp; log in</button>
             </div>
 
             <div id="anilistLoggedIn" class="hidden">
@@ -100,27 +97,24 @@
             <h2>MyAnimeList</h2>
 
             <div id="malLoggedOut">
-                <p class="hint">Log in to show your MAL lists as rows.</p>
-
-                <button id="malLogin" class="primary-btn">Log in with MyAnimeList</button>
-
-                <button id="malSetupToggle" class="secondary-btn">Setup (Client ID + Secret)</button>
-
-                <div id="malSetup" class="sync-form collapsed">
-                    <p class="hint">
+                <ol class="setup-steps">
+                    <li>
                         Create a "Web" app at
                         <a href="https://myanimelist.net/apps/register" target="_blank">MyAnimeList → API</a>
                         with this redirect URL:
-                    </p>
-                    <div class="redirect-row">
-                        <code id="malRedirect" class="redirect-url"></code>
-                        <button id="malCopyRedirect" class="copy-phrase-btn">Copy</button>
-                    </div>
-                    <input id="malClientId" type="text" placeholder="Client ID" spellcheck="false">
-                    <input id="malClientSecret" type="text" placeholder="Client Secret" spellcheck="false">
-                    <p id="malSetupError" class="error-text hidden"></p>
-                    <button id="malSaveCreds" class="primary-btn">Save credentials</button>
-                </div>
+                        <div class="redirect-row">
+                            <code id="malRedirect" class="redirect-url"></code>
+                            <button id="malCopyRedirect" class="copy-phrase-btn">Copy</button>
+                        </div>
+                    </li>
+                    <li>
+                        Paste the app's credentials:
+                        <input id="malClientId" type="text" placeholder="Client ID" spellcheck="false">
+                        <input id="malClientSecret" type="text" placeholder="Client Secret" spellcheck="false">
+                    </li>
+                </ol>
+                <p id="malSetupError" class="error-text hidden"></p>
+                <button id="malLogin" class="primary-btn">Save &amp; log in</button>
             </div>
 
             <div id="malLoggedIn" class="hidden">

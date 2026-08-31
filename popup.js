@@ -74,13 +74,10 @@ const disconnectBtn = document.querySelector("#disconnectSync");
 const anilistLoggedOut = document.querySelector("#anilistLoggedOut");
 const anilistLoggedIn = document.querySelector("#anilistLoggedIn");
 const anilistLoginBtn = document.querySelector("#anilistLogin");
-const anilistSetupToggle = document.querySelector("#anilistSetupToggle");
-const anilistSetup = document.querySelector("#anilistSetup");
 const anilistRedirectEl = document.querySelector("#anilistRedirect");
 const copyRedirectBtn = document.querySelector("#copyRedirect");
 const anilistClientIdInput = document.querySelector("#anilistClientId");
 const anilistSetupError = document.querySelector("#anilistSetupError");
-const anilistSaveClientIdBtn = document.querySelector("#anilistSaveClientId");
 const anilistAvatarEl = document.querySelector("#anilistAvatar");
 const anilistNameEl = document.querySelector("#anilistName");
 const anilistStatsEl = document.querySelector("#anilistStats");
@@ -92,14 +89,11 @@ const anilistStatusEl = document.querySelector("#anilistStatus");
 const malLoggedOut = document.querySelector("#malLoggedOut");
 const malLoggedIn = document.querySelector("#malLoggedIn");
 const malLoginBtn = document.querySelector("#malLogin");
-const malSetupToggle = document.querySelector("#malSetupToggle");
-const malSetup = document.querySelector("#malSetup");
 const malRedirectEl = document.querySelector("#malRedirect");
 const malCopyRedirectBtn = document.querySelector("#malCopyRedirect");
 const malClientIdInput = document.querySelector("#malClientId");
 const malClientSecretInput = document.querySelector("#malClientSecret");
 const malSetupError = document.querySelector("#malSetupError");
-const malSaveCredsBtn = document.querySelector("#malSaveCreds");
 const malInitialEl = document.querySelector("#malInitial");
 const malNameEl = document.querySelector("#malName");
 const malStatsEl = document.querySelector("#malStats");
@@ -219,8 +213,10 @@ function setAnilistStatus(message) {
 async function renderAnilist() {
     anilistRedirectEl.textContent = getRedirectUrl();
 
+    // When the Client ID is baked in (or already stored), there's nothing to set up — just log in.
     const clientId = await getClientId();
-    if (clientId && !anilistClientIdInput.value) anilistClientIdInput.value = clientId;
+    const setupSteps = document.querySelector("#anilistSetupSteps");
+    if (setupSteps) setupSteps.hidden = !!clientId;
 
     const loggedIn = await anilistIsLoggedIn();
     anilistLoggedOut.classList.toggle("hidden", loggedIn);
@@ -246,12 +242,6 @@ anilistPushToggle.addEventListener("change", async () => {
     setAnilistStatus(anilistPushToggle.checked ? "Progress sync on." : "Progress sync off.");
 });
 
-anilistSetupToggle.addEventListener("click", () => {
-    anilistSetup.classList.toggle("collapsed");
-    anilistSetupError.classList.add("hidden");
-    if (!anilistSetup.classList.contains("collapsed")) anilistClientIdInput.focus();
-});
-
 copyRedirectBtn.addEventListener("click", async () => {
     try {
         await navigator.clipboard.writeText(getRedirectUrl());
@@ -262,25 +252,25 @@ copyRedirectBtn.addEventListener("click", async () => {
     }
 });
 
-anilistSaveClientIdBtn.addEventListener("click", async () => {
+anilistLoginBtn.addEventListener("click", async () => {
     anilistSetupError.classList.add("hidden");
+
+    // Save the Client ID from the field if one was entered; otherwise fall back to a stored one.
+    const typed = anilistClientIdInput.value.trim();
     try {
-        await setClientId(anilistClientIdInput.value);
-        anilistSetup.classList.add("collapsed");
-        setAnilistStatus("Client ID saved. You can log in now.");
+        if (typed) await setClientId(typed);
     } catch (err) {
         anilistSetupError.textContent = err.message || "Invalid Client ID";
         anilistSetupError.classList.remove("hidden");
-    }
-});
-
-anilistLoginBtn.addEventListener("click", async () => {
-    if (!(await getClientId())) {
-        anilistSetup.classList.remove("collapsed");
-        setAnilistStatus("Set your Client ID first.");
         return;
     }
-    setButtonLoading(anilistLoginBtn, true, "Opening AniList...", "Log in with AniList");
+    if (!(await getClientId())) {
+        anilistSetupError.textContent = "Enter your AniList Client ID first.";
+        anilistSetupError.classList.remove("hidden");
+        return;
+    }
+
+    setButtonLoading(anilistLoginBtn, true, "Opening AniList...", "Save & log in");
     try {
         const profile = await anilistLogin();
         await renderAnilist();
@@ -289,7 +279,7 @@ anilistLoginBtn.addEventListener("click", async () => {
         console.error("AniList login failed:", err);
         setAnilistStatus(err.message || "Login failed");
     } finally {
-        setButtonLoading(anilistLoginBtn, false, "Opening AniList...", "Log in with AniList");
+        setButtonLoading(anilistLoginBtn, false, "Opening AniList...", "Save & log in");
     }
 });
 
@@ -312,8 +302,9 @@ function setMalStatus(message) {
 async function renderMal() {
     malRedirectEl.textContent = getRedirectUrl();
 
+    // Client ID is baked in — hide that field so the user only supplies the secret.
     const clientId = await getMalClientId();
-    if (clientId && !malClientIdInput.value) malClientIdInput.value = clientId;
+    malClientIdInput.hidden = !!clientId;
     const clientSecret = await getMalClientSecret();
     if (clientSecret && !malClientSecretInput.value) malClientSecretInput.value = clientSecret;
 
@@ -336,12 +327,6 @@ async function renderMal() {
     }
 }
 
-malSetupToggle.addEventListener("click", () => {
-    malSetup.classList.toggle("collapsed");
-    malSetupError.classList.add("hidden");
-    if (!malSetup.classList.contains("collapsed")) malClientIdInput.focus();
-});
-
 malCopyRedirectBtn.addEventListener("click", async () => {
     try {
         await navigator.clipboard.writeText(getRedirectUrl());
@@ -352,25 +337,26 @@ malCopyRedirectBtn.addEventListener("click", async () => {
     }
 });
 
-malSaveCredsBtn.addEventListener("click", async () => {
+malLoginBtn.addEventListener("click", async () => {
     malSetupError.classList.add("hidden");
+
+    // Save credentials from the fields if entered; otherwise use previously stored ones.
+    const id = malClientIdInput.value.trim();
+    const secret = malClientSecretInput.value.trim();
     try {
-        await setMalCredentials(malClientIdInput.value, malClientSecretInput.value);
-        malSetup.classList.add("collapsed");
-        setMalStatus("Credentials saved. You can log in now.");
+        if (id || secret) await setMalCredentials(id, secret);
     } catch (err) {
         malSetupError.textContent = err.message || "Invalid credentials";
         malSetupError.classList.remove("hidden");
-    }
-});
-
-malLoginBtn.addEventListener("click", async () => {
-    if (!(await getMalClientId()) || !(await getMalClientSecret())) {
-        malSetup.classList.remove("collapsed");
-        setMalStatus("Set your Client ID and Secret first.");
         return;
     }
-    setButtonLoading(malLoginBtn, true, "Opening MyAnimeList...", "Log in with MyAnimeList");
+    if (!(await getMalClientId()) || !(await getMalClientSecret())) {
+        malSetupError.textContent = "Enter your MAL Client ID and Secret first.";
+        malSetupError.classList.remove("hidden");
+        return;
+    }
+
+    setButtonLoading(malLoginBtn, true, "Opening MyAnimeList...", "Save & log in");
     try {
         const profile = await malLogin();
         await renderMal();
@@ -379,7 +365,7 @@ malLoginBtn.addEventListener("click", async () => {
         console.error("MAL login failed:", err);
         setMalStatus(err.message || "Login failed");
     } finally {
-        setButtonLoading(malLoginBtn, false, "Opening MyAnimeList...", "Log in with MyAnimeList");
+        setButtonLoading(malLoginBtn, false, "Opening MyAnimeList...", "Save & log in");
     }
 });
 
